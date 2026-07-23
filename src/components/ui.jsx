@@ -115,6 +115,35 @@ export function Links({ items }) {
   );
 }
 
+/* Фотоблок: заголовок + сетка. Если НИ одно фото не загрузилось (файлов ещё нет),
+   секция скрывается целиком — пустого заголовка «Как я выгляжу» не будет. */
+export function Gallery({ items, kicker, title }) {
+  const [dead, setDead] = useState(0);
+  if (dead >= items.length) return null;
+  return (
+    <>
+      <h2 className="h2">{kicker && <s>{kicker}</s>}{title}</h2>
+      <div className="gallery">
+        {items.map(([src, alt]) => (
+          <figure className="ph" key={src}>
+            <img
+              src={src}
+              alt={alt}
+              loading="lazy"
+              decoding="async"
+              onError={(e) => {
+                const f = e.currentTarget.closest('.ph');
+                if (f) f.style.display = 'none';
+                setDead((d) => d + 1);
+              }}
+            />
+          </figure>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function Press({ source, quote, children, amber }) {
   return (
     <div className={amber ? 'press amb' : 'press'}>

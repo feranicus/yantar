@@ -300,24 +300,27 @@ entries contain JSX (that is why the file is `.jsx`, not `.js` — esbuild only 
 
 ### The match engine (`evaluate()` in `src/data.jsx`)
 
-Nine weighted criteria, **max 122 points**:
+Eleven weighted criteria, **max 146 points** (rev 46 added `education` 16 + `reading` 8):
 
 | criterion | weight | hard stop when |
 |---|---|---|
 | goal (what she's looking for) | 22 | `casual` |
 | english | 20 | `none` |
 | kids | 18 | `minor` |
+| education | 16 | `none` (no higher ed; **min bachelor** — `college`/incomplete is a warn, not a stop) |
 | work | 16 | `none` (principled refusal; a pause for parental leave / study / relocation is fine) |
 | age | 14 | — |
 | social media | 10 | — |
 | mobility | 10 | — |
+| reading / self-development | 8 | — |
 | height | 8 | — |
 | smoking | 4 | — |
 
-Any hard stop caps the score at **28 %** and swaps in a specific, honest verdict explaining the
-refusal. Without a hard stop the score is the plain weighted percentage. Reference results, useful as
-a regression check after edits: ideal `100`, office+good-English `96`, work-pause `96`, basic English
-`86`, any hard stop `28`.
+There are now **four** hard stops (goal, english, kids, education) — the UI text on Screen 4/5 says
+"четыре пункта", keep them in sync if the set changes. Any hard stop caps the score at **28 %** and
+swaps in a specific, honest verdict. Without a hard stop the score is the plain weighted percentage.
+Reference results after rev 46 (regression check): ideal (`master`+`lots`) `100`, office+good-English
+`~97`, basic English `~88`, any hard stop `28`. `MATCH_INIT` defaults `edu:'master'`, `read:'lots'`.
 
 ### PWA
 

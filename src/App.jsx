@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  TABS, CHIPS, SPEC_BASE, CHARACTER, STATS, LOGOS, TIMELINE,
+  TABS, CHIPS, SPEC_BASE, CHARACTER, STATS, LOGOS, TIMELINE, EDU, PHOTOS,
   VALUES, LIFE, SPEC_WANT, STOPS, FLAGS_GO, FLAGS_NO, GEO, LINKS
 } from './data.jsx';
 import {
   Eyebrow, H1, H2, P, Chips, Spec, Cards, Pull, Timeline,
-  Flags, Geo, Links, Press, Stats
+  Flags, Geo, Links, Press, Stats, Gallery
 } from './components/ui.jsx';
 import AmberField from './components/AmberField.jsx';
 import TabBar from './components/TabBar.jsx';
@@ -86,7 +86,7 @@ export default function App() {
       <header className="topbar">
         <span className="mark"><i /></span>
         <span className="tb-t">{title}</span>
-        <span className="tb-r">rev 45.0</span>
+        <span className="tb-r">rev 46.0</span>
       </header>
 
       <main id="app">
@@ -117,6 +117,8 @@ function Screen1() {
         кто я, во что верю, что предлагаю и чего не приму.
       </P>
       <Chips items={CHIPS} />
+
+      <Gallery items={PHOTOS} kicker="Фото" title="Как я выгляжу" />
 
       <H2 kicker="01 · База">Основные параметры</H2>
       <Spec rows={SPEC_BASE} />
@@ -161,6 +163,9 @@ function Screen2() {
 
       <H2 kicker="Траектория">Что за этим стоит</H2>
       <Timeline items={TIMELINE} />
+
+      <H2 kicker="Образование">Академическая база</H2>
+      <Timeline items={EDU} />
 
       <Press
         source="Пресса · The Bell · 29.01.2023"
@@ -256,7 +261,7 @@ function Screen4() {
       </P>
 
       <H2 kicker="Границы">Не обсуждается</H2>
-      <P>Почти всё выше — предпочтения, и почти всё можно обсудить. Эти три пункта — нет.</P>
+      <P>Почти всё выше — предпочтения, и почти всё можно обсудить. Эти четыре пункта — нет.</P>
       <Cards items={STOPS} stop />
 
       <Pull by="Стоп 01 · развёрнуто">Нарциссу нужна <em>публика</em>. Мне нужна семья.</Pull>
@@ -293,7 +298,7 @@ function Screen5() {
       <Eyebrow>Инструмент · расчёт в вашем браузере</Eyebrow>
       <H1>Проверка<br /><em>совместимости</em></H1>
       <P lede>
-        Раз уж это спецификация — вот линтер. Три пункта из раздела «Границы» работают как
+        Раз уж это спецификация — вот линтер. Четыре пункта из раздела «Границы» работают как
         жёсткий стоп.
       </P>
 
@@ -314,7 +319,7 @@ function Screen5() {
       </P>
       <Links items={LINKS} />
       <div className="foot">
-        Евгений Вайнштейн · личное досье · ревизия 45.0<br />
+        Евгений Вайнштейн · личное досье · ревизия 46.0<br />
         Рига → Тель-Авив → Франкфурт · jev.best
       </div>
     </section>

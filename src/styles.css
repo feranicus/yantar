@@ -124,6 +124,15 @@ img{max-width:100%;display:block}
 .pull p em{font-style:normal;color:var(--amber)}
 .pull .by{margin-top:11px;font-family:var(--m);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ash)}
 
+/* ---------- фотогалерея ---------- */
+.gallery{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+@media(min-width:560px){.gallery{grid-template-columns:1fr 1fr 1fr}}
+.ph{position:relative;border:1px solid var(--line2);border-radius:var(--r);overflow:hidden;
+  background:var(--card);aspect-ratio:3/4}
+.ph img{width:100%;height:100%;object-fit:cover;object-position:center 22%;
+  transition:transform .5s var(--ease)}
+.ph:active img{transform:scale(1.04)}
+
 /* ---------- пресса ---------- */
 .press{border:1px solid var(--line2);border-left:3px solid var(--oxide);background:var(--card);
   border-radius:var(--r);padding:18px;margin-top:18px}
