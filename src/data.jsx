@@ -1,9 +1,10 @@
 export const TABS = [
   { id: 1, label: 'Профиль' },
-  { id: 2, label: 'Работа' },
-  { id: 3, label: 'Ценности' },
-  { id: 4, label: 'Запрос' },
-  { id: 5, label: 'Матч' }
+  { id: 2, label: 'Фото' },
+  { id: 3, label: 'Работа' },
+  { id: 4, label: 'Ценности' },
+  { id: 5, label: 'Запрос' },
+  { id: 6, label: 'Матч' }
 ];
 
 export const BOOT = [

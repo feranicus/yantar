@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export function Eyebrow({ children }) {
   return <p className="eyebrow">{children}</p>;
@@ -115,31 +116,73 @@ export function Links({ items }) {
   );
 }
 
-/* Фотоблок: заголовок + сетка. Если НИ одно фото не загрузилось (файлов ещё нет),
-   секция скрывается целиком — пустого заголовка «Как я выгляжу» не будет. */
-export function Gallery({ items, kicker, title }) {
-  const [dead, setDead] = useState(0);
-  if (dead >= items.length) return null;
+/* Сетка фото + полноэкранный просмотр (лайтбокс): тап открывает фото на весь экран,
+   × / тап по фону / Esc — закрывают; стрелки и свайп листают. */
+export function Photos({ items }) {
+  const [open, setOpen] = useState(-1);
+  const sx = useRef(null);
+  const close = () => setOpen(-1);
+  const nav = (d) => setOpen((i) => (i < 0 ? i : (i + d + items.length) % items.length));
+
+  useEffect(() => {
+    if (open < 0) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowRight') nav(1);
+      else if (e.key === 'ArrowLeft') nav(-1);
+    };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
-      <h2 className="h2">{kicker && <s>{kicker}</s>}{title}</h2>
       <div className="gallery">
-        {items.map(([src, alt]) => (
+        {items.map(([src, alt], i) => (
           <figure className="ph" key={src}>
             <img
               src={src}
               alt={alt}
               loading="lazy"
               decoding="async"
-              onError={(e) => {
-                const f = e.currentTarget.closest('.ph');
-                if (f) f.style.display = 'none';
-                setDead((d) => d + 1);
-              }}
+              onClick={() => setOpen(i)}
+              onError={(e) => { const f = e.currentTarget.closest('.ph'); if (f) f.style.display = 'none'; }}
             />
           </figure>
         ))}
       </div>
+
+      {open >= 0 && createPortal(
+        <div
+          className="lb"
+          role="dialog"
+          aria-modal="true"
+          onClick={close}
+          onTouchStart={(e) => { sx.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (sx.current == null) return;
+            const dx = e.changedTouches[0].clientX - sx.current;
+            if (Math.abs(dx) > 45) nav(dx < 0 ? 1 : -1);
+            sx.current = null;
+          }}
+        >
+          <button className="lb-x" type="button" aria-label="Закрыть" onClick={close}>×</button>
+          {items.length > 1 && (
+            <button className="lb-nav prev" type="button" aria-label="Назад"
+              onClick={(e) => { e.stopPropagation(); nav(-1); }}>‹</button>
+          )}
+          <img className="lb-img" src={items[open][0]} alt={items[open][1]}
+            onClick={(e) => e.stopPropagation()} />
+          {items.length > 1 && (
+            <button className="lb-nav next" type="button" aria-label="Вперёд"
+              onClick={(e) => { e.stopPropagation(); nav(1); }}>›</button>
+          )}
+          <div className="lb-count">{open + 1} / {items.length}</div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }

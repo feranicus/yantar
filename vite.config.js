@@ -28,8 +28,9 @@ export default defineConfig({
           { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ],
         shortcuts: [
-          { name: 'Проверка совместимости', short_name: 'Матч', url: '/?tab=5' },
-          { name: 'Не обсуждается', short_name: 'Границы', url: '/?tab=4' }
+          { name: 'Фотографии', short_name: 'Фото', url: '/?tab=2' },
+          { name: 'Проверка совместимости', short_name: 'Матч', url: '/?tab=6' },
+          { name: 'Не обсуждается', short_name: 'Границы', url: '/?tab=5' }
         ]
       },
       workbox: {

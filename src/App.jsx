@@ -5,7 +5,7 @@ import {
 } from './data.jsx';
 import {
   Eyebrow, H1, H2, P, Chips, Spec, Cards, Pull, Timeline,
-  Flags, Geo, Links, Press, Stats, Gallery
+  Flags, Geo, Links, Press, Stats, Photos
 } from './components/ui.jsx';
 import AmberField from './components/AmberField.jsx';
 import TabBar from './components/TabBar.jsx';
@@ -19,7 +19,7 @@ const reduced = typeof window !== 'undefined'
 function initialTab() {
   if (typeof window === 'undefined') return 1;
   const n = Number(new URLSearchParams(window.location.search).get('tab'));
-  return n >= 1 && n <= 5 ? n : 1;
+  return n >= 1 && n <= TABS.length ? n : 1;
 }
 
 export default function App() {
@@ -43,6 +43,7 @@ export default function App() {
     let x = 0, y = 0, on = false;
     const start = (e) => {
       if (e.touches.length !== 1) { on = false; return; }
+      if (document.querySelector('.lb')) { on = false; return; } // лайтбокс открыт — не листаем вкладки
       if (e.target.closest && e.target.closest('input[type=range]')) { on = false; return; }
       x = e.touches[0].clientX; y = e.touches[0].clientY; on = true;
     };
@@ -65,6 +66,7 @@ export default function App() {
   useEffect(() => {
     const key = (e) => {
       if (e.target.tagName === 'INPUT') return;
+      if (document.querySelector('.lb')) return; // лайтбокс открыт — стрелки листают фото, не вкладки
       if (e.key === 'ArrowRight') go(tab + 1);
       if (e.key === 'ArrowLeft') go(tab - 1);
     };
@@ -91,10 +93,11 @@ export default function App() {
 
       <main id="app">
         {tab === 1 && <Screen1 />}
-        {tab === 2 && <Screen2 />}
-        {tab === 3 && <Screen3 />}
-        {tab === 4 && <Screen4 />}
-        {tab === 5 && <Screen5 />}
+        {tab === 2 && <ScreenPhotos />}
+        {tab === 3 && <Screen2 />}
+        {tab === 4 && <Screen3 />}
+        {tab === 5 && <Screen4 />}
+        {tab === 6 && <Screen5 />}
       </main>
 
       <TabBar tab={tab} onTab={go} />
@@ -118,8 +121,6 @@ function Screen1() {
       </P>
       <Chips items={CHIPS} />
 
-      <Gallery items={PHOTOS} kicker="Фото" title="Как я выгляжу" />
-
       <H2 kicker="01 · База">Основные параметры</H2>
       <Spec rows={SPEC_BASE} />
 
@@ -135,6 +136,17 @@ function Screen1() {
         один, завтра другой — в настоящей семье поддерживают, а не оценивают отношения по уровню
         комфорта.
       </P>
+    </section>
+  );
+}
+
+function ScreenPhotos() {
+  return (
+    <section className="screen">
+      <Eyebrow>Галерея · как есть, без ретуши</Eyebrow>
+      <H1>Мои<br /><em>фотографии</em></H1>
+      <P lede>Живые кадры — дорога, работа, отдых. Нажми на любое фото, чтобы открыть на весь экран.</P>
+      <Photos items={PHOTOS} />
     </section>
   );
 }
