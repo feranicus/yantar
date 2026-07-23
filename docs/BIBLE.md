@@ -276,9 +276,18 @@ State this plainly so nobody goes looking:
 - `.gitignore` still blocks `.env`/`*.env` and the tar filter drops them, as a backstop — if a
   secret ever becomes necessary, the guardrails are already there.
 
-There is also **no observability wiring**. Unlike jobhuntwow, this project does not emit a JSON event
-stream and does not mount `colt-stack_colt_events`. Its logs are the in-container Caddy's JSON access
-logs on stdout, read via `python jev.py logs`. Do not add a second Loki/Grafana.
+**Observability (added rev 46) — reuses the SHARED stack, never a second one.** `python jev.py obs`
+ships `deploy/obs/` and starts **one** container, `jev-promtail` (project `jevbest`, on
+`videodead_appnet`), which uses `docker_sd` to tail **only** `jev-web`'s Caddy JSON access logs and
+pushes them to the **existing** `videodead-loki-1` (`LOKI_URL=http://videodead-loki-1:3100/...`),
+labelled `job=jevbest` / `container=jev-web`. The dashboard `deploy/obs/grafana/jevbest.json`
+(uid `jevbest-web`: request rate, 2xx/3xx/4xx/5xx, p50/p95 latency, top paths, methods, bytes,
+unique IPs, live stream) is imported into the **existing** Grafana via its HTTP API — set
+`GRAFANA_URL` (e.g. `https://godeyes.ai/observe`) + `GRAFANA_TOKEN` (Editor/Admin service-account
+token) and re-run `jev.py obs`. Still **no second Loki/Grafana** and no `.env`/secrets in the repo.
+`python jev.py logs` still tails `jev-web` directly. Security-by-design needs nothing added — the
+hardening in §7 (read_only, cap_drop ALL, no-new-privileges, single network, non-root, limits) IS the
+security-by-design stack, identical in intent to cybergod's `colt-web`.
 
 
 ## 10. The app itself

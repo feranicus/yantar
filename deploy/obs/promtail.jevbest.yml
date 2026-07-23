@@ -1,0 +1,26 @@
+# jev.best promtail — ТОЛЬКО контейнер jev-web (Caddy JSON access-логи) → СУЩЕСТВУЮЩИЙ Loki
+# видеодед-стека. docker_sd берёт логи через Docker API (на Linux-дроплете это надёжно),
+# relabel оставляет один jev-web, ставит метки job=jevbest / container=jev-web. Парсинг JSON —
+# в Grafana (| json), чтобы не плодить кардинальность. LOKI_URL подставляется из env
+# (promtail стартует с -config.expand-env=true). Соседей не трогаем.
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+positions:
+  filename: /tmp/positions.yaml
+clients:
+  - url: ${LOKI_URL}
+scrape_configs:
+  - job_name: jevbest
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/?jev-web'
+        action: keep
+      - target_label: container
+        replacement: jev-web
+      - target_label: job
+        replacement: jevbest

@@ -1,0 +1,26 @@
+# Наблюдаемость jev.best: один контейнер jev-promtail в проекте jevbest.
+# Пишет в ОБЩИЙ Loki (videodead-loki-1) по videodead_appnet. Никогда не запускать с
+# --remove-orphans (снесёт соседей). Единственная поверхность — исходящий push в Loki.
+services:
+  jev-promtail:
+    image: grafana/promtail:2.9.8
+    container_name: jev-promtail
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/config.yml", "-config.expand-env=true"]
+    environment:
+      - LOKI_URL=http://videodead-loki-1:3100/loki/api/v1/push
+    volumes:
+      - ./promtail.jevbest.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    tmpfs:
+      - /tmp:size=16m
+    networks: [appnet]
+    mem_limit: 96m
+    cpus: 0.25
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+networks:
+  appnet:
+    external: true
+    name: videodead_appnet
