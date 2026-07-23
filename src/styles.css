@@ -1,0 +1,216 @@
+:root{
+  --void:#0b0a09;--resin:#15110c;--resin2:#1c1710;--card:#141009;
+  --amber:#ffb300;--amber-hi:#ffd166;--amber-lo:#8a5e00;--oxide:#e2521f;--ice:#7fd8ff;
+  --ink:#efe7d8;--dust:#a09789;--ash:#6b635a;
+  --line:rgba(255,179,0,.15);--line2:rgba(255,179,0,.07);
+  --d:'Unbounded',sans-serif;--b:'IBM Plex Sans',sans-serif;--m:'IBM Plex Mono',monospace;
+  --r:18px;--ease:cubic-bezier(.22,1,.36,1);
+  --topbar:54px;--tabbar:66px;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{
+  background:var(--void);color:var(--ink);font-family:var(--b);line-height:1.6;
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  overflow-x:clip;min-height:100vh;overscroll-behavior-y:none;
+}
+::selection{background:var(--amber);color:#000}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer}
+img{max-width:100%;display:block}
+
+/* ---------- фон ---------- */
+#bgfx{position:fixed;inset:0;z-index:0;pointer-events:none}
+.glow{position:fixed;inset:0;z-index:0;pointer-events:none;background:
+  radial-gradient(62% 40% at 12% 4%,rgba(255,179,0,.15),transparent 62%),
+  radial-gradient(58% 38% at 92% 30%,rgba(226,82,31,.10),transparent 60%),
+  radial-gradient(70% 44% at 50% 100%,rgba(127,216,255,.05),transparent 62%)}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.3;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 .82 0 0 0 0 .45 0 0 0 .1 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>")}
+
+/* ---------- заставка ---------- */
+#boot{position:fixed;inset:0;z-index:200;background:#050505;display:flex;align-items:center;justify-content:center;
+  padding:calc(var(--sat) + 24px) 22px calc(var(--sab) + 24px);transition:opacity .45s,visibility .45s}
+#boot.off{opacity:0;visibility:hidden}
+.bootbox{width:100%;max-width:420px;font-family:var(--m);font-size:12px;line-height:1.95;color:var(--amber)}
+.bootbox .dim{color:var(--ash)}
+.bootbar{height:3px;background:rgba(255,179,0,.15);margin-top:14px;border-radius:2px;overflow:hidden}
+.bootbar i{display:block;height:100%;width:0;background:var(--amber);transition:width .2s linear}
+
+/* ---------- верхняя панель ---------- */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:60;height:calc(var(--topbar) + var(--sat));
+  padding:var(--sat) max(16px,var(--sal)) 0 max(16px,var(--sal));
+  display:flex;align-items:center;gap:12px;
+  background:rgba(11,10,9,.78);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--line2);
+}
+.mark{width:26px;height:26px;flex:0 0 auto;display:grid;place-items:center}
+.mark i{width:13px;height:13px;background:var(--amber);transform:rotate(45deg);box-shadow:0 0 14px rgba(255,179,0,.55)}
+.tb-t{font-family:var(--d);font-weight:700;font-size:13px;letter-spacing:.02em;text-transform:uppercase;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-r{font-family:var(--m);font-size:9.5px;letter-spacing:.2em;color:var(--ash);text-transform:uppercase;flex:0 0 auto}
+
+/* ---------- экраны ---------- */
+#app{position:relative;z-index:5;padding-top:calc(var(--topbar) + var(--sat));
+  padding-bottom:calc(var(--tabbar) + var(--sab) + 22px);
+  padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar));
+  max-width:760px;margin:0 auto}
+.screen{animation:sw .38s var(--ease)}
+@keyframes sw{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ---------- типографика ---------- */
+.eyebrow{font-family:var(--m);font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--amber);
+  display:flex;align-items:center;gap:9px;margin:22px 0 12px}
+.eyebrow::before{content:'';width:22px;height:1px;background:var(--amber);flex:0 0 auto}
+.h1{font-family:var(--d);font-weight:900;font-size:clamp(30px,9vw,52px);line-height:.96;letter-spacing:-.03em;text-transform:uppercase}
+.h1 em{font-style:normal;color:var(--amber);text-shadow:0 0 34px rgba(255,179,0,.4)}
+.h2{font-family:var(--d);font-weight:700;font-size:19px;line-height:1.2;letter-spacing:-.01em;text-transform:uppercase;margin:34px 0 6px}
+.h2 s{text-decoration:none;font-family:var(--m);font-size:11px;letter-spacing:.2em;color:var(--amber-lo);display:block;margin-bottom:9px;font-weight:400}
+.p{color:var(--dust);font-size:15px;margin-top:12px}
+.p b{color:var(--ink);font-weight:600}
+.lede{font-size:16px;color:var(--dust);margin-top:16px}
+.lede b{color:var(--ink);font-weight:600}
+
+/* ---------- чипы ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:20px}
+.chip{font-family:var(--m);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dust);
+  border:1px solid var(--line);border-radius:999px;padding:8px 12px;background:rgba(21,17,12,.6)}
+.chip s{text-decoration:none;color:var(--amber-lo);margin-right:6px}
+
+/* ---------- карточки ---------- */
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin-top:16px}
+@media(min-width:560px){.cards{grid-template-columns:1fr 1fr}}
+.card{border:1px solid var(--line2);background:var(--card);border-radius:var(--r);padding:18px;position:relative;overflow:hidden}
+.card .tag{font-family:var(--m);font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber-lo);display:block;margin-bottom:9px}
+.card h4{font-family:var(--d);font-weight:700;font-size:13.5px;text-transform:uppercase;letter-spacing:.01em;margin-bottom:7px}
+.card p{font-size:14px;color:var(--dust)}
+.card.stop{border-color:rgba(226,82,31,.32)}
+.card.stop .tag{color:var(--oxide)}
+
+/* ---------- спецификация ---------- */
+.spec{border:1px solid var(--line2);border-radius:var(--r);overflow:hidden;background:var(--resin);margin-top:16px}
+.sr{padding:14px 16px;border-bottom:1px solid var(--line2)}
+.sr:last-child{border-bottom:0}
+.sr .k{font-family:var(--m);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ash);margin-bottom:5px}
+.sr .v{font-size:14.5px}
+.sr .v em{font-style:normal;color:var(--amber)}
+
+/* ---------- статистика ---------- */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.st{border:1px solid var(--line2);background:var(--card);border-radius:var(--r);padding:16px}
+.st .n{font-family:var(--d);font-weight:900;font-size:30px;line-height:1;color:var(--amber);letter-spacing:-.02em}
+.st .l{margin-top:7px;font-family:var(--m);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ash)}
+
+/* ---------- логотипы ---------- */
+.logos{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.lg{font-family:var(--d);font-weight:700;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--dust);
+  border:1px solid var(--line2);border-radius:999px;padding:9px 13px}
+
+/* ---------- таймлайн ---------- */
+.tl{border-left:1px solid var(--line);margin:18px 0 0 5px;padding-left:18px}
+.ti{position:relative;padding-bottom:20px}
+.ti:last-child{padding-bottom:0}
+.ti::before{content:'';position:absolute;left:-23px;top:6px;width:7px;height:7px;background:var(--amber);transform:rotate(45deg)}
+.ti .w{font-family:var(--m);font-size:10px;letter-spacing:.16em;color:var(--amber-lo);text-transform:uppercase}
+.ti .t{font-family:var(--d);font-weight:700;font-size:13px;text-transform:uppercase;margin:5px 0 5px}
+.ti .n{font-size:14px;color:var(--dust)}
+
+/* ---------- цитата ---------- */
+.pull{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:24px 0;margin:24px 0}
+.pull p{font-family:var(--d);font-weight:600;font-size:clamp(18px,5.4vw,26px);line-height:1.26;letter-spacing:-.01em}
+.pull p em{font-style:normal;color:var(--amber)}
+.pull .by{margin-top:11px;font-family:var(--m);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ash)}
+
+/* ---------- пресса ---------- */
+.press{border:1px solid var(--line2);border-left:3px solid var(--oxide);background:var(--card);
+  border-radius:var(--r);padding:18px;margin-top:18px}
+.press.amb{border-left-color:var(--amber)}
+.press .s{font-family:var(--m);font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--oxide)}
+.press.amb .s{color:var(--amber-lo)}
+.press .q{font-family:var(--d);font-weight:600;font-size:15px;line-height:1.4;margin:11px 0}
+.press .m{font-family:var(--m);font-size:11px;color:var(--ash)}
+.press .m a{color:var(--amber);border-bottom:1px solid var(--amber-lo)}
+
+/* ---------- флаги ---------- */
+.flags{display:grid;grid-template-columns:1fr;gap:10px;margin-top:16px}
+@media(min-width:560px){.flags{grid-template-columns:1fr 1fr}}
+.fl{border:1px solid var(--line2);background:var(--card);border-radius:var(--r);padding:18px}
+.fl h4{font-family:var(--d);font-weight:900;font-size:13px;text-transform:uppercase;margin-bottom:11px}
+.fl.go h4{color:var(--amber)}
+.fl.no h4{color:var(--oxide)}
+.fl ul{list-style:none}
+.fl li{position:relative;padding:7px 0 7px 21px;font-size:14px;color:var(--dust);border-bottom:1px solid var(--line2)}
+.fl li:last-child{border-bottom:0}
+.fl.go li::before{content:'+';position:absolute;left:0;color:var(--amber);font-family:var(--m);font-weight:600}
+.fl.no li::before{content:'×';position:absolute;left:0;color:var(--oxide);font-family:var(--m);font-weight:600}
+
+/* ---------- матч ---------- */
+.f{margin-bottom:18px}
+.f>label{display:block;font-family:var(--m);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ash);margin-bottom:9px}
+.f .val{float:right;color:var(--amber);letter-spacing:.06em}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:rgba(255,179,0,.16);
+  border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
+  background:var(--amber);border:0;box-shadow:0 0 14px rgba(255,179,0,.5)}
+input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--amber);border:0}
+input[type=range]:focus-visible{outline:2px solid var(--amber);outline-offset:6px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{font-family:var(--m);font-size:11px;border:1px solid var(--line);border-radius:999px;color:var(--dust);
+  padding:11px 14px;min-height:44px;transition:.18s var(--ease)}
+.opt.sel{background:var(--amber);border-color:var(--amber);color:#0b0a09;font-weight:600}
+.opt:active{transform:scale(.96)}
+
+.term{border:1px solid var(--line2);background:#070605;border-radius:var(--r);padding:18px;margin-top:8px;position:relative;overflow:hidden}
+.term::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:.45;
+  background:repeating-linear-gradient(180deg,rgba(255,179,0,.05) 0 1px,transparent 1px 3px)}
+.tlines{font-family:var(--m);font-size:11.5px;line-height:1.85;color:var(--amber);position:relative;z-index:2}
+.tlines .dim{color:var(--ash)}
+.tlines .ok{color:var(--amber-hi)}
+.tlines .bad{color:var(--oxide)}
+.tlines .warn{color:var(--ice)}
+.score{font-family:var(--d);font-weight:900;font-size:54px;line-height:1;letter-spacing:-.04em;color:var(--amber);
+  text-shadow:0 0 34px rgba(255,179,0,.4);margin:12px 0 0;position:relative;z-index:2}
+.sbar{height:5px;background:rgba(255,179,0,.14);border-radius:3px;margin:12px 0 14px;overflow:hidden;position:relative;z-index:2}
+.sbar i{display:block;height:100%;width:0;border-radius:3px;background:linear-gradient(90deg,var(--oxide),var(--amber),var(--amber-hi));transition:width .6s var(--ease)}
+.verdict{font-size:14px;color:var(--ink);position:relative;z-index:2;padding-top:14px;border-top:1px dashed var(--line)}
+.disc{margin-top:12px;font-family:var(--m);font-size:10px;line-height:1.7;color:var(--ash);position:relative;z-index:2}
+
+/* ---------- гео ---------- */
+.geo{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.gc{border:1px solid var(--line2);background:var(--card);border-radius:var(--r);padding:15px}
+.gc .c{font-family:var(--d);font-weight:700;font-size:13px;text-transform:uppercase}
+.gc .s{font-family:var(--m);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber-lo);margin-top:6px}
+.gc .d{font-size:13px;color:var(--dust);margin-top:6px}
+
+/* ---------- ссылки ---------- */
+.links{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.lnk{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:var(--r);
+  padding:16px 18px;font-family:var(--m);font-size:12px;letter-spacing:.1em;text-transform:uppercase;transition:.2s var(--ease)}
+.lnk s{text-decoration:none;color:var(--amber-lo);flex:0 0 auto}
+.lnk:active{background:var(--amber);color:#0b0a09;border-color:var(--amber)}
+.lnk:active s{color:#0b0a09}
+.foot{margin-top:26px;padding-top:18px;border-top:1px solid var(--line2);
+  font-family:var(--m);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ash);line-height:2}
+
+/* ---------- нижние вкладки ---------- */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;
+  height:calc(var(--tabbar) + var(--sab));padding-bottom:var(--sab);
+  display:grid;grid-template-columns:repeat(5,1fr);
+  background:rgba(11,10,9,.86);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-top:1px solid var(--line2);
+}
+.tb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  font-family:var(--m);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ash);
+  transition:color .2s var(--ease);position:relative;height:var(--tabbar)}
+.tb svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tb.on{color:var(--amber)}
+.tb.on::after{content:'';position:absolute;top:0;left:24%;right:24%;height:2px;background:var(--amber);box-shadow:0 0 12px var(--amber)}
+.tb:active{transform:scale(.94)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}

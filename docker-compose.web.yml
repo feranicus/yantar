@@ -1,0 +1,38 @@
+# PROD на дроплете. Проект: jevbest. Путь: /opt/jevbest
+#
+# ЖЁСТКИЕ ПРАВИЛА (см. docs/BIBLE.md эстейта):
+#  * ровно ОДНА сеть — videodead_appnet. Два network'а ломают Docker DNS
+#    и общий Caddy начинает ловить перемежающиеся 502.
+#  * никаких published ports. Единственная публичная поверхность — Caddy :443.
+#  * никогда не запускать с --remove-orphans: снесёт соседей по дроплету.
+services:
+  jev-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: jev-best:latest
+    container_name: jev-web
+    restart: unless-stopped
+    networks: [appnet]
+    user: "1000:1000"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    mem_limit: 128m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/__whoami | grep -q jev-best"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  appnet:
+    external: true
+    name: videodead_appnet
