@@ -340,6 +340,11 @@ def cmd_deploy():
     print("   " + out.replace("\n", "\n   "))
 
     print("→ 4/5 поднимаю контейнер")
+    # Каталог access-лога Caddy создаём и отдаём uid 1000 ДО старта. Иначе Docker создаст
+    # /opt/jevbest/logs как root:root, а read_only-контейнер jev-web (uid 1000, cap_drop ALL)
+    # не сможет открыть /logs/caddy.jsonl — Caddy упадёт на старте и статика ляжет.
+    # Статик-деплой обязан быть самодостаточным и НЕ зависеть от `python jev.py api`.
+    ssh(f"mkdir -p {REMOTE}/logs && chown -R 1000:1000 {REMOTE}/logs", quiet=True)
     # ВАЖНО: без --remove-orphans. Соседние стеки живут в этом же демоне.
     ssh(f"cd {REMOTE} && {COMPOSE} up -d --force-recreate")
     ssh(
@@ -365,6 +370,15 @@ def verify():
         f"docker exec jev-web wget -qO- http://127.0.0.1:8080/__whoami", check=False
     )
     print(f"   контейнер изнутри : {out or '(пусто)'}")
+    if not (out or "").strip():
+        # Пусто изнутри = Caddy НЕ слушает :8080 (упал на старте), контейнер сам жив.
+        # Почти всегда — не открылся /logs/caddy.jsonl (права на /opt/jevbest/logs).
+        st, _, _ = ssh("docker inspect -f '{{.State.Status}} restarts={{.RestartCount}}' jev-web 2>/dev/null || echo none", check=False)
+        print(f"   [!] jev-web не отдаёт :8080. state: {st or '?'}")
+        cl, _, _ = ssh("docker logs --tail 6 jev-web 2>&1 | tail -6", check=False)
+        if cl.strip():
+            print("       последние строки лога jev-web:")
+            print("       " + cl.replace("\n", "\n       "))
 
     out, _, _ = ssh(
         f"docker run --rm --network videodead_appnet curlimages/curl:latest "
