@@ -1,0 +1,6 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.4
+# OpenTelemetry (авто-инструментация; активна только если задан OTEL_EXPORTER_OTLP_ENDPOINT)
+opentelemetry-instrumentation-fastapi==0.46b0
+opentelemetry-exporter-otlp-proto-http==1.25.0

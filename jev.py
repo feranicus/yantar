@@ -9,6 +9,7 @@ jev.py — оркестратор jev.best. ОДНА КОМАНДА на опе�
     python jev.py dns        ГЛОБАЛЬНЫЙ DNS (публичный резолвер) + что кэширует дроплет
     python jev.py cert       форсировать выпуск TLS-серта на общем Caddy + показать ACME-лог
     python jev.py obs        наблюдаемость: логи jev-web → общий Loki, дашборд → общий Grafana
+    python jev.py api        собрать/поднять jev-api (Кассандра, ИИ-чат; ключи из /opt/jevbest/.env)
     python jev.py flush      сбросить DNS-кэш резолвера ДРОПЛЕТА (чинит «status показывает старое»)
     python jev.py down       остановить только наш стек (соседей не трогает)
 
@@ -48,8 +49,9 @@ GIT_REMOTE = os.environ.get("JEV_GIT_REMOTE", "https://github.com/feranicus/yant
 SHIP_FILES = [
     "package.json", "package-lock.json", "vite.config.js", "index.html",
     "srv.Caddyfile", "Dockerfile.web", "docker-compose.web.yml",
+    "Dockerfile.api", "docker-compose.api.yml",
 ]
-SHIP_DIRS = ["src", "public", "deploy"]
+SHIP_DIRS = ["src", "public", "deploy", "webapp"]
 SKIP = {"node_modules", "dist", "__pycache__", ".git", ".vite", ".DS_Store"}
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -183,6 +185,86 @@ def flush_droplet_dns():
         "|| systemctl restart systemd-resolved 2>/dev/null || true", check=False, quiet=True)
 
 
+# ── Caddy-фикс, встроенный в оркестратор (ОДИН python — jev.py; отдельных скриптов нет) ──
+# Раньше это был deploy/fix_caddy.py. По стандарту эстейта оркестратор ОДИН, поэтому логику
+# держим здесь и гоним на дроплет как `ssh python3 -` (stdin=код). Метод cybergod:
+# вписать committed-сниппет → validate → admin /load → если не живой, РЕСТАРТ общего Caddy.
+FIXCADDY_PY = r'''
+import json, os, re, shutil, subprocess, sys, time
+BEGIN = "# >>> jev.best (managed by jev.py deploy) >>>"
+END = "# <<< jev.best <<<"
+BLOCK_SRC = "/opt/jevbest/deploy/caddy/jev.best.caddy"
+DOMAIN = "jev.best"
+def sh(cmd, check=True):
+    p = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if check and p.returncode != 0:
+        raise SystemExit("FAIL: " + cmd + "\n" + p.stderr.strip())
+    return p.stdout.strip()
+def dexec(c, inner):
+    return subprocess.run("docker exec " + c + " sh -c " + json.dumps(inner),
+                          shell=True, capture_output=True, text=True)
+def find_caddy():
+    names = sh("docker ps --format '{{.Names}}'").splitlines()
+    for n in names:
+        if n.strip() == "videodead-caddy":
+            return n.strip()
+    g = [n for n in names if "caddy" in n.lower()]
+    if not g:
+        raise SystemExit("no caddy container")
+    return g[0]
+def find_cf(c):
+    info = json.loads(sh("docker inspect " + c))[0]
+    for m in info.get("Mounts", []):
+        d = m.get("Destination", "")
+        if d.endswith("/Caddyfile") or d == "/etc/caddy/Caddyfile":
+            s = m.get("Source")
+            if s and os.path.isfile(s):
+                return s
+    raise SystemExit("no Caddyfile bind-mount on " + c)
+def strip_block(t):
+    return re.sub(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n?", "", t, flags=re.S)
+def live(c):
+    r = dexec(c, "curl -sk -m 8 --resolve " + DOMAIN + ":443:127.0.0.1 https://" + DOMAIN + "/__whoami 2>/dev/null || true")
+    return "jev-best" in (r.stdout or "")
+c = find_caddy(); cf = find_cf(c)
+print("caddy container : " + c); print("caddyfile       : " + cf)
+block = open(BLOCK_SRC, encoding="utf-8").read().strip()
+orig = open(cf, encoding="utf-8").read()
+bak = cf + ".bak." + str(int(time.time())); shutil.copy2(cf, bak); print("backup          : " + bak)
+new = strip_block(orig).rstrip() + "\n\n" + BEGIN + "\n" + block + "\n" + END + "\n"
+if new != orig:
+    open(cf, "w", encoding="utf-8").write(new); print("Caddyfile обновлён (in-place).")
+else:
+    print("Caddyfile уже актуален.")
+v = dexec(c, "caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile")
+if v.returncode != 0:
+    shutil.copy2(bak, cf); raise SystemExit("НЕ валиден — откатил.\n" + v.stderr.strip())
+print("validate        : ok")
+load = dexec(c, "caddy adapt --config /etc/caddy/Caddyfile > /tmp/cfg.json && "
+                "curl -sS -X POST -H 'Content-Type: application/json' --data @/tmp/cfg.json "
+                "http://localhost:2019/load && echo ADMIN_LOAD_OK")
+print("admin /load     : " + ("ok" if "ADMIN_LOAD_OK" in (load.stdout or "") else "FAILED " + ((load.stderr or load.stdout or "")[:100])))
+time.sleep(3)
+if live(c):
+    print("live            : jev.best уже отдаёт наш контейнер"); sys.exit(0)
+print("live            : ещё нет -> РЕСТАРТ caddy (метод cybergod)")
+sh("docker restart " + c + " >/dev/null", check=False); time.sleep(10)
+for _ in range(5):
+    if live(c):
+        print("live            : jev.best поднялся"); sys.exit(0)
+    time.sleep(8)
+print("live            : серт ещё выпускается (или лимит Let's Encrypt). jev.py проверит дальше.")
+'''
+
+
+def run_fix_caddy():
+    """Прогнать встроенный Caddy-фикс НА ДРОПЛЕТЕ: ssh python3 - (код идёт в stdin)."""
+    out, err, rc = ssh("python3 -", stdin_data=FIXCADDY_PY, check=False)
+    body = (out or "") + (("\n" + err) if err.strip() else "")
+    print("   " + body.replace("\n", "\n   "))
+    return rc
+
+
 # ── deploy ──────────────────────────────────────────────────────────────────
 def build_tar():
     fd, path = tempfile.mkstemp(suffix=".tar.gz")
@@ -266,8 +348,7 @@ def cmd_deploy():
     )
 
     print("→ 5/5 vhost + перезагрузка Caddy + сброс DNS-кэша дроплета")
-    out, err, rc = ssh(f"cd {REMOTE} && python3 deploy/fix_caddy.py", check=False)
-    print("   " + (out or err).replace("\n", "\n   "))
+    rc = run_fix_caddy()
     if rc != 0:
         raise SystemExit("Caddy не настроен — деплой не завершён.")
     flush_droplet_dns()
@@ -388,13 +469,11 @@ def cmd_cert():
     print(f"общий Caddy: {c}")
     # Доставляем committed-сниппет + fix_caddy на дроплет и запускаем метод cybergod.
     ssh(f"mkdir -p {REMOTE}/deploy/caddy", quiet=True)
-    scp(os.path.join(ROOT, "deploy", "fix_caddy.py"), f"{REMOTE}/deploy/fix_caddy.py")
     scp(os.path.join(ROOT, "deploy", "caddy", "jev.best.caddy"), f"{REMOTE}/deploy/caddy/jev.best.caddy")
     print("→ форсирую выпуск методом cybergod (admin /load, при неудаче — рестарт caddy)…")
-    out, err, rc = ssh(f"cd {REMOTE} && python3 deploy/fix_caddy.py", check=False)
-    print("   " + ((out or "") + (("\n" + err) if err.strip() else "")).replace("\n", "\n   "))
+    rc = run_fix_caddy()
     if rc != 0:
-        print("   [!] fix_caddy вернул ошибку — смотри выше.")
+        print("   [!] Caddy-фикс вернул ошибку — смотри выше.")
 
     print("→ жду выпуск Let's Encrypt (TLS-ALPN) и проверяю напрямую по IP…")
     time.sleep(8)
@@ -533,6 +612,54 @@ def cmd_obs():
     _grafana_import(os.path.join(ROOT, "deploy", "obs", "grafana", "jevbest.json"))
 
 
+def cmd_api():
+    """Собрать и поднять jev-api (Кассандра, ИИ-чат) на дроплете. Ключи — из /opt/jevbest/.env
+    (те же, что в cybergod: OPENAI_API_KEY, OPENAI_BASE_URL — DO Inference). Секреты НЕ в репозитории.
+    Маршрут /api/* включается ребилдом jev-web (srv.Caddyfile) — сначала `deploy`, затем `api`."""
+    print("→ jev-api (Кассандра): переиспользую ключ, который УЖЕ на дроплете (из colt) — нового не нужно")
+    # Тянем OPENAI_API_KEY из живого окружения colt-контейнера ПРЯМО НА ДРОПЛЕТЕ и кладём в
+    # /opt/jevbest/.env. Значение НИКОГДА не покидает дроплет и не печатается (только длина).
+    reuse = (
+        "set -e; mkdir -p /opt/jevbest; "
+        "if [ -s /opt/jevbest/.env ] && grep -q OPENAI_API_KEY /opt/jevbest/.env; then "
+        "  echo KEEP; "
+        "else "
+        "  K=''; B=''; "
+        "  for c in colt-web colt-assessbot colt-cassandra; do "
+        "    K=$(docker exec \"$c\" printenv OPENAI_API_KEY 2>/dev/null || true); "
+        "    if [ -n \"$K\" ]; then B=$(docker exec \"$c\" printenv OPENAI_BASE_URL 2>/dev/null || true); break; fi; "
+        "  done; "
+        "  if [ -n \"$K\" ]; then umask 077; "
+        "    { echo \"OPENAI_API_KEY=$K\"; echo \"OPENAI_BASE_URL=${B:-https://inference.do-ai.run/v1}\"; "
+        "      echo 'JEV_CHAT_MODELS=deepseek-3.2,llama-4-maverick'; } > /opt/jevbest/.env; "
+        "    echo \"REUSED (len ${#K})\"; "
+        "  else echo NO_KEY; fi; "
+        "fi"
+    )
+    out, _, _ = ssh(reuse, check=False, quiet=True)
+    if "REUSED" in out:
+        print("   ✓ ключ переиспользован из colt-контейнера (значение не покидало дроплет): " + out.strip())
+    elif "KEEP" in out:
+        print("   ✓ /opt/jevbest/.env уже содержит ключ — оставляю как есть")
+    else:
+        print("   [!] не нашёл OPENAI_API_KEY в colt-контейнерах. Убедись, что colt-web/assessbot запущены,")
+        print("       либо один раз положи ключ в /opt/jevbest/.env (поля — deploy/.env.example).")
+    print("→ дроплет собирает jev-api")
+    out, err, _ = ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml build 2>&1 | tail -15")
+    print("   " + (out or err).replace("\n", "\n   "))
+    print("→ поднимаю jev-api (без --remove-orphans)")
+    ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml up -d")
+    time.sleep(6)
+    out, _, _ = ssh("docker exec jev-api python3 -c "
+                    "\"import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=5).read().decode())\" "
+                    "2>/dev/null || echo '(jev-api не отвечает)'", check=False)
+    print("   health          : " + (out or "(нет ответа)"))
+    out, _, _ = ssh("docker exec jev-web wget -qO- http://127.0.0.1:8080/api/health 2>/dev/null || echo '(маршрут /api не готов — нужен deploy jev-web)'", check=False)
+    print("   через jev-web    : " + (out or "(нет ответа)"))
+    print("\n  Чат: открой jev.best → кнопка «Спросить ИИ». Если health показал \"llm_configured\": false —")
+    print("  добавь ключ в /opt/jevbest/.env и повтори: python jev.py api")
+
+
 def cmd_flush():
     print("Сбрасываю DNS-кэш резолвера НА ДРОПЛЕТЕ…")
     flush_droplet_dns()
@@ -580,6 +707,7 @@ CMDS = {
     "dns": cmd_dns,
     "cert": cmd_cert,
     "obs": cmd_obs,
+    "api": cmd_api,
     "flush": cmd_flush,
 }
 

@@ -150,6 +150,15 @@ export const LINKS = [
   ['PRESS', 'The Bell · 2023', 'https://thebell.io/gde-zhdut-rossiyskikh-aytishnikov-otchety-tesla-i-microsoft-i-kak-iskat-metadannye']
 ];
 
+/* прямая связь — как на itzen.ai */
+export const CONTACTS = [
+  ['Telegram', '@feranicus', 'https://t.me/feranicus'],
+  ['WhatsApp', '+49 157 8554 1545', 'https://wa.me/4915785541545'],
+  ['Email', 'feranicus@s4biz.io', 'mailto:feranicus@s4biz.io'],
+  ['LinkedIn', 'in/feranicus', 'https://www.linkedin.com/in/feranicus'],
+  ['GitHub', 'feranicus', 'https://github.com/feranicus']
+];
+
 /* ---------- движок совместимости ---------- */
 export const MATCH_FIELDS = [
   { key: 'kids', label: 'Дети', opts: [['none', 'Нет'], ['adult', 'Взрослые'], ['minor', 'Несовершеннолетние']] },

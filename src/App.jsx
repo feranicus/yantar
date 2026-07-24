@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   TABS, CHIPS, SPEC_BASE, CHARACTER, STATS, LOGOS, TIMELINE, EDU, PHOTOS,
-  VALUES, LIFE, SPEC_WANT, STOPS, FLAGS_GO, FLAGS_NO, GEO, LINKS
+  VALUES, LIFE, SPEC_WANT, STOPS, FLAGS_GO, FLAGS_NO, GEO, LINKS, CONTACTS
 } from './data.jsx';
 import {
   Eyebrow, H1, H2, P, Chips, Spec, Cards, Pull, Timeline,
@@ -11,6 +11,7 @@ import AmberField from './components/AmberField.jsx';
 import TabBar from './components/TabBar.jsx';
 import Boot from './components/Boot.jsx';
 import Match from './components/Match.jsx';
+import Chat from './components/Chat.jsx';
 
 const reduced = typeof window !== 'undefined'
   && window.matchMedia
@@ -43,7 +44,7 @@ export default function App() {
     let x = 0, y = 0, on = false;
     const start = (e) => {
       if (e.touches.length !== 1) { on = false; return; }
-      if (document.querySelector('.lb')) { on = false; return; } // лайтбокс открыт — не листаем вкладки
+      if (document.querySelector('.lb, .chat')) { on = false; return; } // лайтбокс/чат открыт — не листаем вкладки
       if (e.target.closest && e.target.closest('input[type=range]')) { on = false; return; }
       x = e.touches[0].clientX; y = e.touches[0].clientY; on = true;
     };
@@ -66,7 +67,7 @@ export default function App() {
   useEffect(() => {
     const key = (e) => {
       if (e.target.tagName === 'INPUT') return;
-      if (document.querySelector('.lb')) return; // лайтбокс открыт — стрелки листают фото, не вкладки
+      if (document.querySelector('.lb, .chat')) return; // лайтбокс/чат открыт — стрелки не листают вкладки
       if (e.key === 'ArrowRight') go(tab + 1);
       if (e.key === 'ArrowLeft') go(tab - 1);
     };
@@ -101,6 +102,7 @@ export default function App() {
       </main>
 
       <TabBar tab={tab} onTab={go} />
+      <Chat />
     </>
   );
 }
@@ -329,6 +331,10 @@ function Screen5() {
         строить, а не только смотреть. Остальное обсудим вживую — за прогулкой, а не в переписке.
         Рекомендации от друзей и коллег, которые знают меня много лет, готов предоставить.
       </P>
+
+      <H2 kicker="Прямая связь">Написать мне</H2>
+      <Links items={CONTACTS} />
+      <P>Ссылки и пресса:</P>
       <Links items={LINKS} />
       <div className="foot">
         Евгений Вайнштейн · личное досье · ревизия 46.0<br />

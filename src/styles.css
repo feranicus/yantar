@@ -223,6 +223,47 @@ input[type=range]:focus-visible{outline:2px solid var(--amber);outline-offset:6p
 .foot{margin-top:26px;padding-top:18px;border-top:1px solid var(--line2);
   font-family:var(--m);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ash);line-height:2}
 
+/* ---------- ИИ-чат (Кассандра) ---------- */
+.chat-fab{position:fixed;right:14px;bottom:calc(var(--tabbar) + var(--sab) + 14px);z-index:55;
+  display:flex;align-items:center;gap:8px;padding:11px 15px 11px 13px;border-radius:999px;
+  background:var(--amber);color:#0b0a09;font-family:var(--m);font-size:11px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;box-shadow:0 8px 26px rgba(255,179,0,.35)}
+.chat-fab svg{width:18px;height:18px;stroke:#0b0a09;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.chat-fab:active{transform:scale(.95)}
+
+.chat{position:fixed;z-index:300;right:0;bottom:0;left:0;top:auto;
+  height:min(78vh,620px);display:flex;flex-direction:column;
+  background:#0c0a08;border-top:1px solid var(--line);border-radius:20px 20px 0 0;
+  box-shadow:0 -20px 60px rgba(0,0,0,.6);animation:chatup .28s var(--ease);
+  padding-bottom:var(--sab);max-width:760px;margin:0 auto}
+@media(min-width:560px){.chat{right:16px;left:auto;bottom:16px;width:420px;border-radius:18px;
+  border:1px solid var(--line);height:min(72vh,600px)}}
+@keyframes chatup{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.chat-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+  border-bottom:1px solid var(--line2)}
+.chat-ti{display:flex;align-items:center;gap:9px;font-family:var(--d);font-weight:700;font-size:13px;
+  text-transform:uppercase;letter-spacing:.01em}
+.chat-ti i{width:9px;height:9px;background:var(--amber);transform:rotate(45deg);box-shadow:0 0 12px var(--amber)}
+.chat-x{width:34px;height:34px;border-radius:50%;font-size:22px;color:var(--dust);display:grid;place-items:center}
+.chat-x:active{background:var(--resin2);color:var(--ink)}
+.chat-body{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:16px;display:flex;flex-direction:column;gap:10px}
+.cm{max-width:84%;padding:11px 14px;border-radius:16px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+.cm.ai{align-self:flex-start;background:var(--card);border:1px solid var(--line2);border-bottom-left-radius:5px;color:var(--ink)}
+.cm.me{align-self:flex-end;background:var(--amber);color:#0b0a09;border-bottom-right-radius:5px;font-weight:500}
+.cm.typing{display:flex;gap:5px;align-items:center;padding:14px}
+.cm.typing i{width:7px;height:7px;border-radius:50%;background:var(--amber-lo);animation:tp 1.2s infinite}
+.cm.typing i:nth-child(2){animation-delay:.2s}.cm.typing i:nth-child(3){animation-delay:.4s}
+@keyframes tp{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+.chat-in{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line2);align-items:flex-end}
+.chat-in textarea{flex:1;resize:none;max-height:110px;background:var(--resin);border:1px solid var(--line);
+  border-radius:14px;color:var(--ink);font-family:var(--b);font-size:14px;padding:11px 13px;line-height:1.4;outline:none}
+.chat-in textarea:focus{border-color:var(--amber-lo)}
+.chat-in button{flex:0 0 auto;width:44px;height:44px;border-radius:50%;background:var(--amber);color:#0b0a09;
+  font-size:20px;font-weight:700;display:grid;place-items:center}
+.chat-in button:disabled{opacity:.4}
+.chat-in button:active:not(:disabled){transform:scale(.94)}
+
 /* ---------- нижние вкладки ---------- */
 .tabbar{
   position:fixed;left:0;right:0;bottom:0;z-index:60;

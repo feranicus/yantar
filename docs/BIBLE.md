@@ -423,8 +423,20 @@ Build output for reference: `~172 kB` JS (`~59 kB` gzip), `~13 kB` CSS.
 
 ## 14. Standing rules
 
+- **ONE orchestrator.** The operator ever runs only `python jev.py <verb>`. Every other piece of
+  orchestration Python is **folded into jev.py** (e.g. the old `deploy/fix_caddy.py` is now the
+  embedded `FIXCADDY_PY`, run on the droplet via `ssh python3 -`). Never add a standalone
+  orchestration script — add a verb. The **only** other `.py` in the repo is `webapp/main.py`, which
+  is the **product backend app** (`jev-api` / the «Кассандра» AI chat), not an orchestrator.
+- **Reuse the key already on the droplet — no new key anywhere.** `python jev.py api` pulls
+  `OPENAI_API_KEY`/`OPENAI_BASE_URL` from a running **colt** container's env ON THE DROPLET and writes
+  `/opt/jevbest/.env` (umask 077); the value never leaves the droplet, never prints, never enters the
+  repo (`.gitignore` + tar drop `*.env`). Same source for the bot token/alert routing later.
+- **Architecture is now full-stack** (rev 46+): static React (`jev-web`) **plus** a FastAPI backend
+  (`jev-api`, DO Inference LLM, same client/keys as cybergod `enrich.py`). §0/§9's "static, no backend,
+  no secrets" describes the ORIGINAL site; the backend + reused-key are the deliberate exception above.
 - If a value in this file changes, update this file **in the same commit**.
 - One command per operation. Never hand a human a list of shell lines to paste.
 - Verify with the machine, not with confidence. A response body, not a status code.
-- Do not cross the streams: nothing from jobhuntwow, colt-stack or videodead belongs in this repo,
-  and nothing from this repo belongs in theirs. The droplet is shared; the projects are not.
+- Do not cross the streams: code/conventions don't move between repos. The one sanctioned reuse is the
+  droplet's existing LLM key (read at runtime, never copied into the repo). The droplet is shared.
