@@ -1,6 +1,6 @@
-# jev-api — бэкенд (Кассандра, ИИ-чат). ОТДЕЛЬНЫЙ compose, чтобы базовый статик-деплой
-# (docker-compose.web.yml) не зависел от секретов. Проект тот же — jevbest. Одна сеть.
-# Секреты — из /opt/jevbest/.env (env_file). НИКОГДА --remove-orphans.
+# jev-api — бэкенд (Кассандра ИИ-чат + cybergod-телеметрия/алерты). ОТДЕЛЬНЫЙ compose, чтобы
+# базовый статик-деплой не зависел от секретов. Проект jevbest. Одна сеть. НИКОГДА --remove-orphans.
+# Секреты и метки — из /opt/jevbest/.env (переиспользованы с дроплета из colt — python jev.py api).
 services:
   jev-api:
     build:
@@ -10,12 +10,21 @@ services:
     container_name: jev-api
     restart: unless-stopped
     env_file: [.env]
+    environment:
+      SERVICE: jev-web                     # метка события — как «Colt Web», но service=jev-web
+      CADDY_LOG: /logs/caddy.jsonl         # тейлим access-лог jev-web
+      EVENTS_LOG: /coltevents/events.log   # пишем evt=http туда, где их берёт colt-promtail → Loki
+      GEOIP_DIR: /data
     networks: [appnet]
     user: "1000:1000"
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
     tmpfs:
       - /tmp:size=32m
+    volumes:
+      - /opt/jevbest/logs:/logs:ro         # читаем caddy.jsonl (jev-web пишет)
+      - coltevents:/coltevents             # общий журнал событий colt (его тейлит colt-promtail)
+      - jevdata:/data                      # geoip mmdb (лениво качается, переживает редеплой)
     mem_limit: 320m
     cpus: 0.75
     healthcheck:
@@ -23,7 +32,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 12s
+      start_period: 15s
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
@@ -31,3 +40,8 @@ networks:
   appnet:
     external: true
     name: videodead_appnet
+volumes:
+  coltevents:
+    external: true
+    name: ${COLT_EVENTS_VOLUME:-colt-stack_colt_events}
+  jevdata: {}

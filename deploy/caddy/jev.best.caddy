@@ -1,8 +1,21 @@
-# jev.best — 1:1 по образцу работающего cybergod.ai (deploy/caddy/cybergod.caddy).
-# apex + www в ОДНОМ блоке (один серт на оба имени). Общий edge-Caddy терминирует TLS и
-# проксирует к нашему контейнеру. Никаких лишних директив (log-в-файл/заголовки) — они не нужны
-# для выпуска серта и только добавляли переменных; их можно вернуть ПОСЛЕ того, как серт живой.
+# jev.best — edge vhost. Метод как у РАБОТАЮЩЕГО jobhuntwow.com (статик-сайт за общим Caddy):
+#  * log { format json } на СТДАУТ — общий edge-Caddy (videodead-caddy-1) пишет JSON-логи запросов
+#    jev.best; их уже собирает существующий promtail (docker_sd, метка container=videodead-caddy-1)
+#    → Loki. Отдельный промтейл НЕ нужен. Дашборд фильтрует по request_host="jev.best".
+#  * security-by-design заголовки (HSTS/nosniff/referrer/anti-clickjacking). Строгий CSP НЕ ставим —
+#    он ломает PWA (Google Fonts + inline от Vite/Workbox); заголовки ниже безопасны.
 jev.best, www.jev.best {
+	log {
+		output stdout
+		format json
+	}
 	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
 	reverse_proxy jev-web:8080
 }

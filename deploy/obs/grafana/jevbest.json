@@ -1,36 +1,38 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "uid": "jevbest-web",
+  "title": "jev.best — Web (visitors + security)",
+  "tags": [
+    "jev.best",
+    "jevbest",
+    "observability",
+    "security"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
   "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "links": [],
   "liveNow": true,
   "refresh": "30s",
-  "schemaVersion": 39,
-  "tags": [
-    "jevbest",
-    "jev.best",
-    "caddy",
-    "web"
-  ],
-  "templating": {
-    "list": []
-  },
   "time": {
     "from": "now-24h",
     "to": "now"
   },
-  "timepicker": {},
-  "timezone": "",
-  "title": "jev.best — Web (jev-web / Caddy)",
-  "uid": "jevbest-web",
-  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "ds",
+        "label": "Loki",
+        "query": "loki",
+        "hide": 0,
+        "refresh": 1,
+        "current": {}
+      }
+    ]
+  },
   "panels": [
     {
       "type": "row",
-      "title": "jev.best — jev-web (Caddy access logs, из Loki)",
+      "title": "jev.best — Visitors",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -39,11 +41,12 @@
       }
     },
     {
+      "id": 1,
       "type": "stat",
-      "title": "Запросов (24ч)",
+      "title": "Visits (24h)",
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 4,
@@ -51,14 +54,25 @@
         "x": 0,
         "y": 1
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" [24h]))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "decimals": 0,
           "color": {
             "mode": "fixed",
             "fixedColor": "blue"
-          },
-          "noValue": "0"
+          }
         },
         "overrides": []
       },
@@ -73,474 +87,41 @@
         "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" [24h]))",
-          "queryType": "instant"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "2xx (24ч)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "green"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"2..\" [24h]))",
-          "queryType": "instant"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "4xx (24ч)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "orange"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"4..\" [24h]))",
-          "queryType": "instant"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "5xx (24ч)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "red"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"5..\" [24h]))",
-          "queryType": "instant"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Запросы по классам статуса (rate)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 18,
-            "lineWidth": 2,
-            "stacking": {
-              "mode": "normal"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"2..\" [$__interval]))",
-          "queryType": "range",
-          "legendFormat": "2xx"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"3..\" [$__interval]))",
-          "queryType": "range",
-          "legendFormat": "3xx"
-        },
-        {
-          "refId": "C",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"4..\" [$__interval]))",
-          "queryType": "range",
-          "legendFormat": "4xx"
-        },
-        {
-          "refId": "D",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"5..\" [$__interval]))",
-          "queryType": "range",
-          "legendFormat": "5xx"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Задержка ответа (p50 / p95)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 18,
-            "lineWidth": 2,
-            "stacking": {
-              "mode": "none"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "quantile_over_time(0.50, {job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | unwrap duration [$__interval])",
-          "queryType": "range",
-          "legendFormat": "p50"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "quantile_over_time(0.95, {job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | unwrap duration [$__interval])",
-          "queryType": "range",
-          "legendFormat": "p95"
-        }
-      ]
-    },
-    {
-      "type": "bargauge",
-      "title": "Топ путей (24ч)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 13
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "continuous-GrYlRd"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": true
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "topk(12, sum by (request_uri) (count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" [24h])))",
-          "queryType": "instant",
-          "legendFormat": "{{request_uri}}"
-        }
-      ]
-    },
-    {
-      "type": "bargauge",
-      "title": "Методы (24ч)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 13
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "continuous-GrYlRd"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": true
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (request_method) (count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" [24h]))",
-          "queryType": "instant",
-          "legendFormat": "{{request_uri}}"
-        }
-      ]
-    },
-    {
-      "type": "row",
-      "title": "Безопасность / здоровье",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 22
       }
     },
     {
+      "id": 2,
       "type": "stat",
-      "title": "Отдано трафика (24ч)",
+      "title": "Unique humans (IPs)",
       "datasource": {
         "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 23
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "decbytes",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "purple"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(sum_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | unwrap size [24h]))",
-          "queryType": "instant"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Ошибки 4xx (1ч)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 23
+        "y": 1
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(sum by (ip)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h])))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "decimals": 0,
           "color": {
             "mode": "fixed",
-            "fixedColor": "orange"
-          },
-          "noValue": "0"
+            "fixedColor": "green"
+          }
         },
         "overrides": []
       },
@@ -555,40 +136,41 @@
         "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"4..\" [1h]))",
-          "queryType": "instant"
-        }
-      ]
+      }
     },
     {
+      "id": 3,
       "type": "stat",
-      "title": "Ошибки 5xx (1ч)",
+      "title": "Bots (24h)",
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 23
+        "y": 1
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [24h]))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "decimals": 0,
           "color": {
             "mode": "fixed",
-            "fixedColor": "red"
-          },
-          "noValue": "0"
+            "fixedColor": "orange"
+          }
         },
         "overrides": []
       },
@@ -603,40 +185,41 @@
         "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"5..\" [1h]))",
-          "queryType": "instant"
-        }
-      ]
+      }
     },
     {
+      "id": 4,
       "type": "stat",
-      "title": "Уник. IP (24ч)",
+      "title": "4xx / 5xx (24h)",
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 23
+        "y": 1
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | status=~\"4..|5..\" [24h]))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "decimals": 0,
           "color": {
             "mode": "fixed",
-            "fixedColor": "blue"
-          },
-          "noValue": "0"
+            "fixedColor": "red"
+          }
         },
         "overrides": []
       },
@@ -651,42 +234,52 @@
         "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Traffic / min — humans vs bots",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
       },
       "targets": [
         {
           "refId": "A",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [1m]))",
+          "queryType": "range",
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${ds}"
           },
-          "expr": "count(sum by (request_remote_ip) (count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" [24h])))",
-          "queryType": "instant"
+          "legendFormat": "humans"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [1m]))",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          },
+          "legendFormat": "bots"
         }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "4xx / 5xx во времени",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 24,
-        "x": 0,
-        "y": 27
-      },
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 18,
-            "lineWidth": 2,
-            "stacking": {
-              "mode": "none"
-            }
+            "fillOpacity": 14,
+            "showPoints": "never",
+            "lineWidth": 2
           }
         },
         "overrides": []
@@ -694,66 +287,520 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
         }
+      }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Countries (humans, 24h)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 5
       },
       "targets": [
         {
           "refId": "A",
+          "expr": "sum by (country)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h]))",
+          "queryType": "instant",
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${ds}"
           },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"4..\" [$__interval]))",
-          "queryType": "range",
-          "legendFormat": "4xx"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum(count_over_time({job=\"jevbest\"} | json | msg=\"handled request\" | request_uri!=\"/__whoami\" | status=~\"5..\" [$__interval]))",
-          "queryType": "range",
-          "legendFormat": "5xx"
+          "legendFormat": "{{country}}"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "continuous-GrYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      }
     },
     {
-      "type": "logs",
-      "title": "Живой поток запросов jev-web",
+      "id": 7,
+      "type": "bargauge",
+      "title": "Devices (humans, 24h)",
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (device)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h]))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          },
+          "legendFormat": "{{device}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "continuous-GrYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Top human IPs (24h)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, sum by (ip)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h])))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Bots / scanners seen (24h)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, sum by (bot_name)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [24h])))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Visitor log",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 34
-      },
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending",
-        "enableLogDetails": true
+        "y": 21
       },
       "targets": [
         {
           "refId": "A",
+          "expr": "{container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | line_format \"{{.method}} {{.path}} → {{.status}}  {{.ms}}ms  {{.ip}}  {{.country}}  {{.device}}  {{.bot_name}}\"",
+          "queryType": "range",
           "datasource": {
             "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{job=\"jevbest\"} | json | msg=\"handled request\"",
-          "queryType": "range"
+            "uid": "${ds}"
+          }
         }
-      ]
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "type": "row",
+      "title": "jev.best — Security",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Security alerts (24h)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 32
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" [24h]))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Suppressed (storm cap)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 32
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"alert_suppressed\" [24h]))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Alert delivery FAILURES",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 32
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"alert_delivery\" | result=\"error\" [24h]))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Path-probe / scanners (24h)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 32
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" | rule=~\"path_probe|dir_bruteforce|authz_probe\" [24h]))",
+          "queryType": "instant",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Security alerts by rule",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (rule)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" [$__interval]))",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          },
+          "legendFormat": "{{rule}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 14,
+            "showPoints": "never",
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "logs",
+      "title": "Security alert log (forensics)",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" | line_format \"[{{.severity}}] {{.rule}} — {{.title}} | {{.subject}} | {{.detail}}\"",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      }
     }
   ]
 }

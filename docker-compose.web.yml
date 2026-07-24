@@ -20,6 +20,10 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777
+    volumes:
+      # общий с jev-api каталог для access-лога Caddy (телеметрия). Каталог на дроплете создаёт и
+      # чинит права (chown 1000) `python jev.py api`.
+      - /opt/jevbest/logs:/logs
     mem_limit: 128m
     cpus: 0.5
     healthcheck:

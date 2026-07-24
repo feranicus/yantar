@@ -581,69 +581,65 @@ def _grafana_import(dash_path):
 
 
 def cmd_obs():
-    """Наблюдаемость jev.best: промтейл шлёт Caddy-логи jev-web в ОБЩИЙ Loki, дашборд — в Grafana.
-    Security-by-design у jev-web уже есть (read_only, cap_drop ALL, no-new-privileges, одна сеть,
-    non-root, лимиты) — это в docker-compose.web.yml. Здесь добавляем только видимость."""
-    print("→ наблюдаемость jev.best (jev-promtail → общий Loki, дашборд → общий Grafana)")
-    ssh(f"mkdir -p {REMOTE}/deploy/obs/grafana", quiet=True)
-    for rel in ("deploy/obs/promtail.jevbest.yml",
-                "deploy/obs/docker-compose.obs.yml",
-                "deploy/obs/grafana/jevbest.json"):
-        scp(os.path.join(ROOT, *rel.split("/")), f"{REMOTE}/{rel}")
+    """Дашборд jev.best — СТРУКТУРА КАК В CYBERGOD «Colt Web» (Visitors + Security), по тем же
+    событиям evt=http / security_alert, но service=jev-web. События генерирует jev-api (см. `api`):
+    он тейлит access-лог jev-web, строит evt=http через ТЕ ЖЕ telemetry/alerts/notify, что и colt-web,
+    и пишет их в ОБЩИЙ colt events.log → colt-promtail → общий Loki. Здесь только ПРОВИЖЕНИМ дашборд
+    в каталог, который читает videodead-grafana (токен НЕ нужен). Сначала `python jev.py api`."""
+    print("→ дашборд jev.best (как «Colt Web», service=jev-web) — провижен в общий Grafana, без токена")
+    dash_dir = "/opt/videodead/observability/grafana/dashboards"
+    ssh(f"mkdir -p {dash_dir}", quiet=True)
+    scp(os.path.join(ROOT, "deploy", "obs", "grafana", "jevbest.json"), f"{dash_dir}/jevbest.json")
+    print(f"   дашборд провижен : {dash_dir}/jevbest.json (Grafana подхватит за ~10-30с)")
 
-    print("→ поднимаю jev-promtail (без --remove-orphans — соседей не трогаем)")
-    ssh(f"cd {REMOTE}/deploy/obs && docker compose -p {PROJECT} -f docker-compose.obs.yml up -d")
-    out, _, _ = ssh("docker ps --filter name=jev-promtail --format '{{.Names}}\t{{.Status}}'", check=False)
-    print("   " + (out or "jev-promtail не запущен"))
+    # опционально — если заданы GRAFANA_URL+GRAFANA_TOKEN, ещё и импортируем по API
+    if os.environ.get("GRAFANA_URL") and os.environ.get("GRAFANA_TOKEN"):
+        print("→ (доп.) импорт по API — заданы GRAFANA_URL+GRAFANA_TOKEN")
+        _grafana_import(os.path.join(ROOT, "deploy", "obs", "grafana", "jevbest.json"))
 
-    # немного трафика, чтобы в Loki появился стрим, затем проверяем метку job
-    ssh("docker exec jev-web wget -qO- http://127.0.0.1:8080/ >/dev/null 2>&1 || true", check=False, quiet=True)
-    time.sleep(5)
+    # проверим, что события jev-web уже долетают в Loki (jev-api должен быть запущен и был трафик)
     out, _, _ = ssh(
         "docker run --rm --network videodead_appnet curlimages/curl:latest -s "
-        "'http://videodead-loki-1:3100/loki/api/v1/label/job/values' || true", check=False, quiet=True)
-    print("   Loki job labels : " + (out or "(нет ответа)"))
-    if "jevbest" in (out or ""):
-        print("   ✓ логи jev-web дошли до Loki (job=jevbest)")
-    else:
-        print("   [i] job=jevbest ещё не виден — дай трафику/промтейлу ~30с и проверь: python jev.py obs")
-
-    print("→ импорт дашборда в Grafana")
-    _grafana_import(os.path.join(ROOT, "deploy", "obs", "grafana", "jevbest.json"))
+        "'http://videodead-loki-1:3100/loki/api/v1/query?query="
+        "count_over_time({container=~%22.*assess-bot.*%22}%20|%20json%20|%20service=%22jev-web%22%20[15m])' "
+        "2>/dev/null || true", check=False, quiet=True)
+    seen = '"result":[{' in (out or "")
+    print("   события service=jev-web в Loki: " + ("ЕСТЬ ✓" if seen else "пока нет (запусти `python jev.py api`, дай трафик)"))
+    print("\n  Grafana → Dashboards → «jev.best — Web (visitors + security)».")
+    print("  Explore (Loki):  {container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\"")
 
 
 def cmd_api():
     """Собрать и поднять jev-api (Кассандра, ИИ-чат) на дроплете. Ключи — из /opt/jevbest/.env
     (те же, что в cybergod: OPENAI_API_KEY, OPENAI_BASE_URL — DO Inference). Секреты НЕ в репозитории.
     Маршрут /api/* включается ребилдом jev-web (srv.Caddyfile) — сначала `deploy`, затем `api`."""
-    print("→ jev-api (Кассандра): переиспользую ключ, который УЖЕ на дроплете (из colt) — нового не нужно")
-    # Тянем OPENAI_API_KEY из живого окружения colt-контейнера ПРЯМО НА ДРОПЛЕТЕ и кладём в
-    # /opt/jevbest/.env. Значение НИКОГДА не покидает дроплет и не печатается (только длина).
+    print("→ jev-api: переиспользую ВСЕ секреты, что УЖЕ на дроплете (из colt) — новых не завожу")
+    # ВСЁ тянем из живого окружения colt-контейнера ПРЯМО НА ДРОПЛЕТЕ: LLM-ключ + бот + email (Gmail).
+    # Значения НИКОГДА не покидают дроплет и не печатаются (показываем только ИМЕНА, что нашли).
+    # Плюс создаём общий каталог логов (jev-web пишет туда caddy.jsonl) и находим colt-events volume.
     reuse = (
-        "set -e; mkdir -p /opt/jevbest; "
-        "if [ -s /opt/jevbest/.env ] && grep -q OPENAI_API_KEY /opt/jevbest/.env; then "
-        "  echo KEEP; "
-        "else "
-        "  K=''; B=''; "
-        "  for c in colt-web colt-assessbot colt-cassandra; do "
-        "    K=$(docker exec \"$c\" printenv OPENAI_API_KEY 2>/dev/null || true); "
-        "    if [ -n \"$K\" ]; then B=$(docker exec \"$c\" printenv OPENAI_BASE_URL 2>/dev/null || true); break; fi; "
-        "  done; "
-        "  if [ -n \"$K\" ]; then umask 077; "
-        "    { echo \"OPENAI_API_KEY=$K\"; echo \"OPENAI_BASE_URL=${B:-https://inference.do-ai.run/v1}\"; "
-        "      echo 'JEV_CHAT_MODELS=deepseek-3.2,llama-4-maverick'; } > /opt/jevbest/.env; "
-        "    echo \"REUSED (len ${#K})\"; "
-        "  else echo NO_KEY; fi; "
-        "fi"
+        "set -e; mkdir -p /opt/jevbest/logs; chown -R 1000:1000 /opt/jevbest/logs 2>/dev/null || true; "
+        "SRC=''; for c in colt-web colt-assessbot colt-cassandra; do "
+        "  if docker inspect \"$c\" >/dev/null 2>&1; then SRC=\"$c\"; break; fi; done; "
+        "if [ -z \"$SRC\" ]; then echo NO_COLT; exit 0; fi; "
+        "umask 077; : > /opt/jevbest/.env.tmp; "
+        "for V in OPENAI_API_KEY OPENAI_BASE_URL BOT_TOKEN ALERT_TG_CHAT ALERT_EMAIL GMAIL_SENDER GMAIL_SA_B64; do "
+        "  VAL=$(docker exec \"$SRC\" printenv \"$V\" 2>/dev/null || true); "
+        "  [ -n \"$VAL\" ] && printf '%s=%s\\n' \"$V\" \"$VAL\" >> /opt/jevbest/.env.tmp; done; "
+        "grep -q OPENAI_BASE_URL /opt/jevbest/.env.tmp || echo 'OPENAI_BASE_URL=https://inference.do-ai.run/v1' >> /opt/jevbest/.env.tmp; "
+        "echo 'JEV_CHAT_MODELS=deepseek-3.2,llama-4-maverick' >> /opt/jevbest/.env.tmp; "
+        "VOL=$(docker volume ls --format '{{.Name}}' | grep -i 'colt.*event' | head -1); "
+        "[ -n \"$VOL\" ] && echo \"COLT_EVENTS_VOLUME=$VOL\" >> /opt/jevbest/.env.tmp; "
+        "mv /opt/jevbest/.env.tmp /opt/jevbest/.env; "
+        "echo \"REUSED from $SRC:\"; sed 's/=.*/=<set>/' /opt/jevbest/.env"
     )
     out, _, _ = ssh(reuse, check=False, quiet=True)
-    if "REUSED" in out:
-        print("   ✓ ключ переиспользован из colt-контейнера (значение не покидало дроплет): " + out.strip())
-    elif "KEEP" in out:
-        print("   ✓ /opt/jevbest/.env уже содержит ключ — оставляю как есть")
-    else:
-        print("   [!] не нашёл OPENAI_API_KEY в colt-контейнерах. Убедись, что colt-web/assessbot запущены,")
-        print("       либо один раз положи ключ в /opt/jevbest/.env (поля — deploy/.env.example).")
+    print("   " + (out or "(нет ответа)").replace("\n", "\n   "))
+    if "OPENAI_API_KEY=<set>" not in out:
+        print("   [!] LLM-ключ не найден в colt — чат ответит фолбэком. Проверь, что colt-web запущен.")
+    if "ALERT_TG_CHAT=<set>" not in out:
+        print("   [i] ALERT_TG_CHAT не задан в colt — Telegram-алерты некуда слать. Добавь свой chat_id в")
+        print("       /opt/jevbest/.env (ALERT_TG_CHAT=<число>), напиши боту, чтобы узнать id. email — по ALERT_EMAIL.")
     print("→ дроплет собирает jev-api")
     out, err, _ = ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml build 2>&1 | tail -15")
     print("   " + (out or err).replace("\n", "\n   "))
