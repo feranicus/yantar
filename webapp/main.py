@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 import telemetry
 import alerts
+import watchdog
 
 # ── LLM (DO Inference, как enrich.py) ────────────────────────────────────────
 BASE = os.environ.get("OPENAI_BASE_URL", "https://inference.do-ai.run/v1").rstrip("/")
@@ -148,9 +149,23 @@ def _tail_caddy():
 
 
 @app.on_event("startup")
-def _start_tailer():
+def _start_background():
     if os.environ.get("JEV_TELEMETRY", "1") != "0":
         threading.Thread(target=_tail_caddy, name="caddy-tail", daemon=True).start()
+    watchdog.start()          # активный аптайм-мониторинг: сайт лёг / серт истекает -> алерт
+
+
+@app.exception_handler(Exception)
+async def _unhandled(request, exc):
+    """Наш мини-Sentry: любое необработанное исключение -> evt=error -> alerts.observe_error."""
+    try:
+        ev = dict(evt="error", path=str(request.url.path)[:200], method=request.method,
+                  exc=type(exc).__name__, msg=str(exc)[:200])
+        telemetry.emit(**ev)
+        alerts.observe_error(ev)
+    except Exception:
+        pass
+    return JSONResponse({"error": "internal"}, status_code=500)
 
 
 # ── чат ──────────────────────────────────────────────────────────────────────
@@ -173,12 +188,26 @@ def health():
     return {"ok": True, "llm_configured": bool(KEY), "models": MODELS,
             "telemetry": os.environ.get("JEV_TELEMETRY", "1") != "0",
             "alerts": os.environ.get("ALERTS_ENABLED", "1") != "0",
+            "watchdog": os.environ.get("WATCHDOG_ENABLED", "1") != "0",
             "caddy_log": CADDY_LOG}
+
+
+def _chat_metric(ok, ms=0, model="", reason="", turns=0):
+    """evt=chat: одна запись на диалоговый ход. Латентность LLM, какая модель ответила, успех/провал.
+    Содержимое сообщений НЕ логируем (приватность) — только метрики. Тот же конвейер -> Loki."""
+    try:
+        ev = dict(evt="chat", ok=bool(ok), ms=int(ms), model=model or "-",
+                  reason=reason or ("ok" if ok else "fail"), turns=int(turns))
+        telemetry.emit(**ev)
+        alerts.observe_chat(ev)
+    except Exception:
+        pass
 
 
 @app.post("/api/chat")
 def chat(inp: ChatIn):
     if not KEY:
+        _chat_metric(False, reason="no_key")
         return JSONResponse({"reply": "ИИ-ассистент сейчас недоступен. Напишите Евгению напрямую: "
                                       "Telegram @feranicus или WhatsApp +49 157 8554 1545."}, status_code=200)
     hist = []
@@ -192,13 +221,16 @@ def chat(inp: ChatIn):
     convo = [{"role": "system", "content": PERSONA}] + hist
     last_err = None
     for model in MODELS:
+        t0 = time.time()
         try:
             reply = _llm(convo, model, TIMEOUT)
             if reply:
+                _chat_metric(True, ms=(time.time() - t0) * 1000, model=model, turns=len(hist))
                 return {"reply": reply, "model": model}
         except Exception as e:
             last_err = e
             continue
     print("[chat] all models failed:", repr(last_err), flush=True)
+    _chat_metric(False, reason="all_models_failed", turns=len(hist))
     return JSONResponse({"reply": "Кассандра сейчас думает медленно 🙈 Напишите Евгению напрямую: "
                                   "Telegram @feranicus или WhatsApp +49 157 8554 1545."}, status_code=200)

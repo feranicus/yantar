@@ -15,6 +15,13 @@ services:
       CADDY_LOG: /logs/caddy.jsonl         # тейлим access-лог jev-web
       EVENTS_LOG: /coltevents/events.log   # пишем evt=http туда, где их берёт colt-promtail → Loki
       GEOIP_DIR: /data
+      # активный аптайм-мониторинг (watchdog.py): пробим свой статик и общий эдж по SNI из appnet.
+      WATCHDOG_ENABLED: "1"
+      WATCHDOG_INTERVAL: "60"                  # период проб, сек
+      WATCHDOG_INTERNAL_URL: http://jev-web:8080/__whoami
+      WATCHDOG_EDGE_HOST: videodead-caddy-1    # общий эдж-Caddy в той же сети appnet
+      WATCHDOG_SNI: jev.best
+      CERT_WARN_DAYS: "14"                     # алерт, если до конца TLS-серта осталось меньше
     networks: [appnet]
     user: "1000:1000"
     security_opt: ["no-new-privileges:true"]

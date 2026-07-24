@@ -50,6 +50,14 @@ COOLDOWN          = _i("ALERT_COOLDOWN", 900)       # per rule+subject
 STORM_CAP         = _i("ALERT_STORM_CAP", 12)       # max alerts/hour, total
 ENABLED           = os.environ.get("ALERTS_ENABLED", "1") != "0"
 
+# ---- uptime / health / app rules (jev.best-specific) ---------------------------------------------
+CERT_WARN_DAYS    = _i("CERT_WARN_DAYS", 14)        # TLS cert expiry warning threshold (days)
+HEALTH_FAIL_N     = _i("HEALTH_FAIL_N", 2)          # consecutive failed probes before "site down"
+ERROR_N           = _i("ALERT_ERROR_N", 5)          # unhandled jev-api errors in window
+ERROR_WIN         = _i("ALERT_ERROR_WIN", 600)
+CHATFAIL_N        = _i("ALERT_CHATFAIL_N", 4)       # chat/LLM failures in window = key/model broken
+CHATFAIL_WIN      = _i("ALERT_CHATFAIL_WIN", 900)
+
 # paths a scanner asks for and a real user never does
 _PROBE_PATHS = ("/.env", "/.git", "/wp-", "/wordpress", "/phpmyadmin", "/admin.php", "/.aws",
                 "/config.json", "/actuator", "/vendor/", "/xmlrpc.php", "/shell", "/cgi-bin",
@@ -58,6 +66,7 @@ _PROBE_PATHS = ("/.env", "/.git", "/wp-", "/wordpress", "/phpmyadmin", "/admin.p
 _w = defaultdict(deque)          # key -> deque[(ts, value)]
 _sent = {}                       # dedup key -> ts
 _storm = deque()
+_health = {"down_streak": 0, "was_down": False, "cert_alert_day": None}  # uptime state machine
 
 
 def _push(key, value=None, win=3600):
@@ -247,3 +256,78 @@ def observe_assess(email, company, ip=""):
               "",
               "Each run spends Shodan query credits and LLM tokens.",
               "Legitimate bulk research looks identical — confirm with the user."])
+
+
+# ---------------------------------------------------------------- uptime / health (watchdog.py)
+def observe_health(ev):
+    """evt=health от watchdog: сайт лёг / поднялся / сертификат истекает. Только переходы состояния —
+    не спамим, пока лежит. Сертификат — не чаще раза в сутки."""
+    up = bool(ev.get("ok"))
+    if not up:
+        _health["down_streak"] += 1
+        if _health["down_streak"] >= HEALTH_FAIL_N and not _health["was_down"]:
+            _health["was_down"] = True
+            fire("site_down", "jev.best", "jev.best НЕДОСТУПЕН",
+                 ["Пробы подряд с ошибкой: %d" % _health["down_streak"],
+                  "internal (jev-web:8080): %s" % ("ok" if ev.get("internal_ok") else "FAIL"),
+                  "edge+TLS (jev.best): %s" % ("ok" if ev.get("edge_ok") else "FAIL"),
+                  "HTTP статус эджа: %s" % ev.get("status", 0),
+                  "Ошибка: %s" % (ev.get("err") or "-"),
+                  "",
+                  "Проверь: python jev.py status  и  python jev.py logs"],
+                 severity="CRITICAL")
+    else:
+        if _health["was_down"]:
+            fire("site_up", "jev.best", "jev.best снова доступен",
+                 ["Сайт отвечает: internal ok, edge+TLS ok.",
+                  "Задержка edge: %sms, internal: %sms" % (ev.get("ms_edge"), ev.get("ms_internal"))],
+                 severity="INFO")
+        _health["down_streak"] = 0
+        _health["was_down"] = False
+
+    cd = ev.get("cert_days")
+    if isinstance(cd, int) and 0 <= cd < CERT_WARN_DAYS:
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        if _health["cert_alert_day"] != today:
+            _health["cert_alert_day"] = today
+            fire("cert_expiring", "jev.best", "TLS-сертификат jev.best скоро истекает",
+                 ["Осталось дней: %d (порог %d)" % (cd, CERT_WARN_DAYS),
+                  "Caddy обычно продлевает сам за 30 дней до конца.",
+                  "Если счётчик падает и ниже — проверь эдж:",
+                  "  docker logs videodead-caddy-1 | grep -i jev.best",
+                  "  python jev.py cert"],
+                 severity="HIGH")
+
+
+# ---------------------------------------------------------------- unhandled API errors (Sentry-lite)
+def observe_error(ev):
+    """evt=error: всплеск необработанных исключений в jev-api -> алерт (наш мини-Sentry)."""
+    key = "err:%s" % (ev.get("exc") or "Exception")
+    _push(key, ev.get("path"), ERROR_WIN)
+    n = _count(key, ERROR_WIN)
+    if n >= ERROR_N:
+        fire("api_error_burst", ev.get("exc") or "Exception",
+             "Всплеск ошибок в jev-api",
+             ["Исключение: %s" % (ev.get("exc") or "-"),
+              "Ошибок за %d мин: %d (порог %d)" % (ERROR_WIN // 60, n, ERROR_N),
+              "Пути: %s" % ", ".join(list(_distinct(key, ERROR_WIN))[:8]),
+              "Последнее сообщение: %s" % (ev.get("msg") or "-")[:180]],
+             severity="HIGH")
+
+
+# ---------------------------------------------------------------- chat / LLM health
+def observe_chat(ev):
+    """evt=chat с ok=false: подряд падают ответы Кассандры -> ключ/модель/бюджет LLM сломаны."""
+    if ev.get("ok"):
+        return
+    _push("chatfail", ev.get("reason"), CHATFAIL_WIN)
+    n = _count("chatfail", CHATFAIL_WIN)
+    if n >= CHATFAIL_N:
+        fire("chat_llm_failing", "cassandra",
+             "ИИ-чат (Кассандра) не отвечает",
+             ["Неудачных ответов за %d мин: %d (порог %d)" % (CHATFAIL_WIN // 60, n, CHATFAIL_N),
+              "Причины: %s" % ", ".join(list(_distinct("chatfail", CHATFAIL_WIN))[:6]),
+              "",
+              "Вероятно: LLM-ключ/лимит DO Inference или обе модели недоступны.",
+              "Проверь: python jev.py api  (health -> llm_configured)"],
+             severity="HIGH")

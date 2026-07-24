@@ -1,806 +1,1541 @@
 {
-  "uid": "jevbest-web",
-  "title": "jev.best — Web (visitors + security)",
-  "tags": [
-    "jev.best",
-    "jevbest",
-    "observability",
-    "security"
-  ],
-  "schemaVersion": 39,
-  "version": 1,
-  "editable": true,
-  "liveNow": true,
-  "refresh": "30s",
-  "time": {
-    "from": "now-24h",
-    "to": "now"
-  },
-  "templating": {
-    "list": [
-      {
-        "type": "datasource",
-        "name": "ds",
-        "label": "Loki",
-        "query": "loki",
-        "hide": 0,
-        "refresh": 1,
-        "current": {}
-      }
-    ]
-  },
-  "panels": [
-    {
-      "type": "row",
-      "title": "jev.best — Visitors",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      }
-    },
-    {
-      "id": 1,
-      "type": "stat",
-      "title": "Visits (24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 1
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      }
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Unique humans (IPs)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 1
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "count(sum by (ip)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h])))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "green"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      }
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Bots (24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 1
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "orange"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      }
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "4xx / 5xx (24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 1
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | status=~\"4..|5..\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "red"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      }
-    },
-    {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Traffic / min — humans vs bots",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 5
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [1m]))",
-          "queryType": "range",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          },
-          "legendFormat": "humans"
-        },
-        {
-          "refId": "B",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [1m]))",
-          "queryType": "range",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          },
-          "legendFormat": "bots"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 14,
-            "showPoints": "never",
-            "lineWidth": 2
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      }
-    },
-    {
-      "id": 6,
-      "type": "bargauge",
-      "title": "Countries (humans, 24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 5
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (country)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          },
-          "legendFormat": "{{country}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "continuous-GrYlRd"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": true
-        }
-      }
-    },
-    {
-      "id": 7,
-      "type": "bargauge",
-      "title": "Devices (humans, 24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 5
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (device)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          },
-          "legendFormat": "{{device}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "continuous-GrYlRd"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": true
-        }
-      }
-    },
-    {
-      "id": 8,
-      "type": "table",
-      "title": "Top human IPs (24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 13
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "topk(15, sum by (ip)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h])))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "options": {
-        "showHeader": true
-      },
-      "transformations": [
-        {
-          "id": "labelsToFields",
-          "options": {}
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            }
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 9,
-      "type": "table",
-      "title": "Bots / scanners seen (24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 13
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "topk(15, sum by (bot_name)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [24h])))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "options": {
-        "showHeader": true
-      },
-      "transformations": [
-        {
-          "id": "labelsToFields",
-          "options": {}
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            }
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 10,
-      "type": "logs",
-      "title": "Visitor log",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 21
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "{container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | line_format \"{{.method}} {{.path}} → {{.status}}  {{.ms}}ms  {{.ip}}  {{.country}}  {{.device}}  {{.bot_name}}\"",
-          "queryType": "range",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "enableLogDetails": true,
-        "sortOrder": "Descending",
-        "dedupStrategy": "none"
-      }
-    },
-    {
-      "type": "row",
-      "title": "jev.best — Security",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 31
-      }
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Security alerts (24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 32
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "red"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      }
-    },
-    {
-      "id": 12,
-      "type": "stat",
-      "title": "Suppressed (storm cap)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 32
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"alert_suppressed\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "orange"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      }
-    },
-    {
-      "id": 13,
-      "type": "stat",
-      "title": "Alert delivery FAILURES",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 32
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"alert_delivery\" | result=\"error\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "red"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      }
-    },
-    {
-      "id": 14,
-      "type": "stat",
-      "title": "Path-probe / scanners (24h)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 32
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" | rule=~\"path_probe|dir_bruteforce|authz_probe\" [24h]))",
-          "queryType": "instant",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "purple"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto"
-      }
-    },
-    {
-      "id": 15,
-      "type": "timeseries",
-      "title": "Security alerts by rule",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 36
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (rule)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" [$__interval]))",
-          "queryType": "range",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          },
-          "legendFormat": "{{rule}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 14,
-            "showPoints": "never",
-            "lineWidth": 2
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      }
-    },
-    {
-      "id": 16,
-      "type": "logs",
-      "title": "Security alert log (forensics)",
-      "datasource": {
-        "type": "loki",
-        "uid": "${ds}"
-      },
-      "gridPos": {
-        "h": 11,
-        "w": 24,
-        "x": 0,
-        "y": 44
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "{container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" | line_format \"[{{.severity}}] {{.rule}} — {{.title}} | {{.subject}} | {{.detail}}\"",
-          "queryType": "range",
-          "datasource": {
-            "type": "loki",
-            "uid": "${ds}"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "enableLogDetails": true,
-        "sortOrder": "Descending",
-        "dedupStrategy": "none"
-      }
-    }
+ "uid": "jevbest-web",
+ "title": "jev.best — Web (visitors + security)",
+ "tags": [
+  "jev.best",
+  "jevbest",
+  "observability",
+  "security"
+ ],
+ "schemaVersion": 39,
+ "version": 2,
+ "editable": true,
+ "liveNow": true,
+ "refresh": "30s",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "type": "datasource",
+    "name": "ds",
+    "label": "Loki",
+    "query": "loki",
+    "hide": 0,
+    "refresh": 1,
+    "current": {}
+   }
   ]
+ },
+ "panels": [
+  {
+   "type": "row",
+   "title": "jev.best — Visitors",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 1,
+   "type": "stat",
+   "title": "Visits (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 0,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "blue"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 2,
+   "type": "stat",
+   "title": "Unique humans (IPs)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 6,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(sum by (ip)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h])))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "green"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 3,
+   "type": "stat",
+   "title": "Bots (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 12,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "orange"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 4,
+   "type": "stat",
+   "title": "4xx / 5xx (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 18,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | status=~\"4..|5..\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 5,
+   "type": "timeseries",
+   "title": "Traffic / min — humans vs bots",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [1m]))",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "humans"
+    },
+    {
+     "refId": "B",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [1m]))",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "bots"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 14,
+      "showPoints": "never",
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "id": 6,
+   "type": "bargauge",
+   "title": "Countries (humans, 24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 6,
+    "x": 12,
+    "y": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (country)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "{{country}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "continuous-GrYlRd"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": true
+    }
+   }
+  },
+  {
+   "id": 7,
+   "type": "bargauge",
+   "title": "Devices (humans, 24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 6,
+    "x": 18,
+    "y": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (device)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "{{device}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "continuous-GrYlRd"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": true
+    }
+   }
+  },
+  {
+   "id": 8,
+   "type": "table",
+   "title": "Top human IPs (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 13
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "topk(15, sum by (ip)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"false\" [24h])))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true
+   },
+   "transformations": [
+    {
+     "id": "labelsToFields",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "id": 9,
+   "type": "table",
+   "title": "Bots / scanners seen (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 13
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "topk(15, sum by (bot_name)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | bot=\"true\" [24h])))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true
+   },
+   "transformations": [
+    {
+     "id": "labelsToFields",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "id": 10,
+   "type": "logs",
+   "title": "Visitor log",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 10,
+    "w": 24,
+    "x": 0,
+    "y": 21
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "{container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\" | line_format \"{{.method}} {{.path}} → {{.status}}  {{.ms}}ms  {{.ip}}  {{.country}}  {{.device}}  {{.bot_name}}\"",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "enableLogDetails": true,
+    "sortOrder": "Descending",
+    "dedupStrategy": "none"
+   }
+  },
+  {
+   "type": "row",
+   "title": "jev.best — Security",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 31
+   }
+  },
+  {
+   "id": 11,
+   "type": "stat",
+   "title": "Security alerts (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 0,
+    "y": 32
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 12,
+   "type": "stat",
+   "title": "Suppressed (storm cap)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 6,
+    "y": 32
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"alert_suppressed\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "orange"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 13,
+   "type": "stat",
+   "title": "Alert delivery FAILURES",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 12,
+    "y": 32
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"alert_delivery\" | result=\"error\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 14,
+   "type": "stat",
+   "title": "Path-probe / scanners (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 18,
+    "y": 32
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" | rule=~\"path_probe|dir_bruteforce|authz_probe\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "purple"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 15,
+   "type": "timeseries",
+   "title": "Security alerts by rule",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 36
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (rule)(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" [$__interval]))",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "{{rule}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 14,
+      "showPoints": "never",
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "id": 16,
+   "type": "logs",
+   "title": "Security alert log (forensics)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 11,
+    "w": 24,
+    "x": 0,
+    "y": 44
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "{container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"security_alert\" | line_format \"[{{.severity}}] {{.rule}} — {{.title}} | {{.subject}} | {{.detail}}\"",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "enableLogDetails": true,
+    "sortOrder": "Descending",
+    "dedupStrategy": "none"
+   }
+  },
+  {
+   "type": "row",
+   "title": "jev.best — Uptime & health (active watchdog)",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 55
+   },
+   "panels": []
+  },
+  {
+   "id": 17,
+   "type": "stat",
+   "title": "Site status (last probe)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 0,
+    "y": 56
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "last_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | unwrap up [15m])",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "blue"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "UP",
+         "color": "green"
+        },
+        "0": {
+         "text": "DOWN",
+         "color": "red"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 18,
+   "type": "stat",
+   "title": "TLS cert — days left",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 6,
+    "y": 56
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "last_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | unwrap cert_days [24h])",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "d",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 14
+       },
+       {
+        "color": "green",
+        "value": 30
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 19,
+   "type": "stat",
+   "title": "Edge latency (ms, last)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 12,
+    "y": 56
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "last_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | unwrap ms_edge [15m])",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "purple"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 20,
+   "type": "stat",
+   "title": "Failed probes (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 18,
+    "y": 56
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | ok=\"false\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 21,
+   "type": "timeseries",
+   "title": "Uptime timeline (1=up)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 7,
+    "w": 12,
+    "x": 0,
+    "y": 60
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "max_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | unwrap edge_up [1m])",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "edge+TLS"
+    },
+    {
+     "refId": "B",
+     "expr": "max_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | unwrap internal_up [1m])",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "internal"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 14,
+      "showPoints": "never",
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "id": 22,
+   "type": "timeseries",
+   "title": "Probe latency (ms)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 7,
+    "w": 12,
+    "x": 12,
+    "y": 60
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "avg_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | unwrap ms_edge [1m])",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "edge"
+    },
+    {
+     "refId": "B",
+     "expr": "avg_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | unwrap ms_internal [1m])",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "internal"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 14,
+      "showPoints": "never",
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "id": 23,
+   "type": "logs",
+   "title": "Health log (probes)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 67
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "{container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"health\" | line_format \"up={{.up}} cert={{.cert_days}}d edge={{.ms_edge}}ms int={{.ms_internal}}ms {{.err}}\"",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "enableLogDetails": true,
+    "sortOrder": "Descending",
+    "dedupStrategy": "none"
+   }
+  },
+  {
+   "type": "row",
+   "title": "jev.best — Кассандра / AI chat",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 75
+   },
+   "panels": []
+  },
+  {
+   "id": 24,
+   "type": "stat",
+   "title": "Chat replies (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 0,
+    "y": 76
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"chat\" | ok=\"true\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "green"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 25,
+   "type": "stat",
+   "title": "Chat failures (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 6,
+    "y": 76
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"chat\" | ok=\"false\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 26,
+   "type": "stat",
+   "title": "LLM latency p95 (ms, 24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 12,
+    "y": 76
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "quantile_over_time(0.95, {container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"chat\" | ok=\"true\" | unwrap ms [24h])",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "purple"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 27,
+   "type": "stat",
+   "title": "jev-api errors (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 18,
+    "y": 76
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"error\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "orange"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   }
+  },
+  {
+   "id": 28,
+   "type": "timeseries",
+   "title": "Chat volume / hour (ok vs fail)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 7,
+    "w": 12,
+    "x": 0,
+    "y": 80
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"chat\" | ok=\"true\" [1h]))",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "ok"
+    },
+    {
+     "refId": "B",
+     "expr": "sum(count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"chat\" | ok=\"false\" [1h]))",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "fail"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 14,
+      "showPoints": "never",
+      "lineWidth": 2
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "id": 29,
+   "type": "bargauge",
+   "title": "Which model answered (24h)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 7,
+    "w": 12,
+    "x": 12,
+    "y": 80
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (model) (count_over_time({container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"chat\" | ok=\"true\" [24h]))",
+     "queryType": "instant",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     },
+     "legendFormat": "{{model}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "showUnfilled": true,
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   }
+  },
+  {
+   "id": 30,
+   "type": "logs",
+   "title": "Chat log (metrics only — no message content)",
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds}"
+   },
+   "gridPos": {
+    "h": 7,
+    "w": 24,
+    "x": 0,
+    "y": 87
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "{container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"chat\" | line_format \"{{.reason}} model={{.model}} {{.ms}}ms turns={{.turns}}\"",
+     "queryType": "range",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds}"
+     }
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "enableLogDetails": true,
+    "sortOrder": "Descending",
+    "dedupStrategy": "none"
+   }
+  }
+ ]
 }
