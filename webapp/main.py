@@ -121,13 +121,18 @@ def _process(d):
 
 
 def _tail_caddy():
-    """Робастный тейл: ждёт файл, переоткрывает при ротации (inode/усечение). Никогда не падает."""
+    """Робастный тейл: ждёт файл, переоткрывает при ротации (inode/усечение). Никогда не падает.
+    ВАЖНО: при первом запуске стартуем с КОНЦА файла (как `tail -f`), НЕ переигрывая историю. Иначе
+    рестарт jev-api за секунду перечитывал бы тысячи старых строк → всплеск = ложный алерт ddos/burst
+    и дубли событий в Loki. Пропускаем лог только за время простоя рестарта — это осознанный размен."""
     print("[telemetry] tailing", CADDY_LOG, flush=True)
-    pos, ino = 0, None
+    pos, ino, started = 0, None, False
     while True:
         try:
             st = os.stat(CADDY_LOG)
-            if ino != st.st_ino or st.st_size < pos:   # новый файл / ротация / усечение
+            if not started:                            # первый успешный stat: не переигрываем историю
+                pos, ino, started = st.st_size, st.st_ino, True
+            elif ino != st.st_ino or st.st_size < pos:  # новый файл / ротация / усечение
                 ino, pos = st.st_ino, 0
             if st.st_size > pos:
                 with open(CADDY_LOG, "r", encoding="utf-8", errors="replace") as fh:
@@ -153,6 +158,21 @@ def _start_background():
     if os.environ.get("JEV_TELEMETRY", "1") != "0":
         threading.Thread(target=_tail_caddy, name="caddy-tail", daemon=True).start()
     watchdog.start()          # активный аптайм-мониторинг: сайт лёг / серт истекает -> алерт
+
+
+@app.on_event("startup")
+async def _start_daily_report():
+    """Ежедневный отчёт на email (+короткая сводка в Telegram) в 07:00 UTC — 1:1 как cybergod."""
+    if os.environ.get("DAILY_REPORT", "1") == "0":
+        return
+    try:
+        import asyncio
+        import daily_report
+        asyncio.create_task(daily_report.scheduler())
+        print("[daily_report] scheduled at %s:00 UTC" %
+              os.environ.get("DAILY_REPORT_HOUR", "7"), flush=True)
+    except Exception as e:
+        print("[daily_report] disabled:", repr(e), flush=True)
 
 
 @app.exception_handler(Exception)

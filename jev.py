@@ -45,6 +45,29 @@ PROJECT = "jevbest"
 DOMAIN = os.environ.get("JEV_DOMAIN", "jev.best")
 COMPOSE = f"docker compose -p {PROJECT} -f docker-compose.web.yml"
 GIT_REMOTE = os.environ.get("JEV_GIT_REMOTE", "https://github.com/feranicus/yantar.git")
+# IndexNow — мгновенная переиндексация в Яндекс/Bing. Ключ лежит в public/<key>.txt (отдаётся на
+# https://jev.best/<key>.txt). Пингуем с ПК (интернет есть), не с дроплета.
+INDEXNOW_KEY = os.environ.get("INDEXNOW_KEY", "702944d86f2a8ba33d17f66aea6efc27")
+
+
+def indexnow_ping(urls=None):
+    """Сообщить Яндексу/Bing (и всем участникам IndexNow) о свежих URL. Никогда не роняет деплой."""
+    import urllib.request
+    urls = urls or [f"https://{DOMAIN}/"]
+    payload = json.dumps({"host": DOMAIN, "key": INDEXNOW_KEY,
+                          "keyLocation": f"https://{DOMAIN}/{INDEXNOW_KEY}.txt",
+                          "urlList": urls}).encode()
+    for ep in ("https://api.indexnow.org/indexnow", "https://yandex.com/indexnow"):
+        host = ep.split("/")[2]
+        try:
+            req = urllib.request.Request(ep, data=payload,
+                                         headers={"Content-Type": "application/json; charset=utf-8"})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                print(f"   IndexNow {host}: HTTP {r.status} ({len(urls)} URL)")
+        except urllib.error.HTTPError as e:
+            print(f"   IndexNow {host}: HTTP {e.code} ({'ключ ещё не виден — норм после первого деплоя' if e.code in (403,422) else e.reason})")
+        except Exception as e:
+            print(f"   IndexNow {host}: {repr(e)[:70]}")
 
 SHIP_FILES = [
     "package.json", "package-lock.json", "vite.config.js", "index.html",
@@ -361,6 +384,9 @@ def cmd_deploy():
     print()
     ok = verify()
     verify_http_pipeline()
+    if ok:
+        print("→ IndexNow: пингую Яндекс/Bing о свежем контенте")
+        indexnow_ping([f"https://{DOMAIN}/", f"https://{DOMAIN}/llms.txt"])
 
 
 def verify():
@@ -466,6 +492,19 @@ def cmd_diagnose():
         "--format '{{.Names}}\t{{.Status}}\t{{.Image}}'", check=False
     )
     print(out or "jev-web не запущен")
+
+    print("— http-телеметрия: тейлит ли jev-api access-лог jev-web —")
+    o1, _, _ = ssh("docker exec jev-api sh -c 'wc -l < /logs/caddy.jsonl 2>/dev/null || echo NO_FILE' "
+                   "2>/dev/null || echo 'jev-api down'", check=False)
+    print("  строк caddy.jsonl (глазами jev-api): " + (o1 or "?").strip())
+    o2, _, _ = ssh("docker exec jev-api sh -c 'tail -n 1 /logs/caddy.jsonl 2>/dev/null' 2>/dev/null || true", check=False)
+    print("  последняя строка caddy.jsonl:")
+    print("    " + ((o2 or "(пусто)").strip()[:400]))
+    o3, _, _ = ssh("docker logs jev-api 2>&1 | grep -cE 'evt.+http' || echo 0", check=False)
+    print("  http-событий эмитнул сам jev-api (его stdout): " + (o3 or "0").strip())
+    o4, _, _ = ssh("docker logs jev-api 2>&1 | grep -iE 'telemetry|tail error|caddy' | tail -4 || true", check=False)
+    print("  строки телеметрии из логов jev-api:")
+    print("    " + ((o4 or "(нет)").strip().replace("\n", "\n    ")))
 
     print("— блок в общем Caddyfile —")
     out, _, _ = ssh(
@@ -639,15 +678,24 @@ def cmd_obs():
         print("→ (доп.) импорт по API — заданы GRAFANA_URL+GRAFANA_TOKEN")
         _grafana_import(os.path.join(ROOT, "deploy", "obs", "grafana", "jevbest.json"))
 
-    # проверим, что события jev-web уже долетают в Loki (jev-api должен быть запущен и был трафик)
-    out, _, _ = ssh(
-        "docker run --rm --network videodead_appnet curlimages/curl:latest -s "
-        "'http://videodead-loki-1:3100/loki/api/v1/query?query="
-        "count_over_time({container=~%22.*assess-bot.*%22}%20|%20json%20|%20service=%22jev-web%22%20[15m])' "
-        "2>/dev/null || true", check=False, quiet=True)
-    seen = '"result":[{' in (out or "")
-    print("   события service=jev-web в Loki: " + ("ЕСТЬ ✓" if seen else "пока нет (запусти `python jev.py api`, дай трафик)"))
-    print("\n  Grafana → Dashboards → «jev.best — Web (visitors + security)».")
+    # РАЗБИВКА по evt в Loki за 24ч. health уже виден — если http тоже >0, дашборд оживёт;
+    # если http=0 при health>0 — промтейл/лейблы роняют именно http-строки (копнём дальше).
+    def _loki_val(logql):
+        import urllib.parse
+        q = urllib.parse.quote(logql, safe="")
+        o, _, _ = ssh("docker run --rm --network videodead_appnet curlimages/curl:latest -s "
+                      f"'http://videodead-loki-1:3100/loki/api/v1/query?query={q}' 2>/dev/null || true",
+                      check=False, quiet=True)
+        try:
+            r = json.loads(o)["data"]["result"]
+            return r[0]["value"][1] if r else "0"
+        except Exception:
+            return "?"
+    base = '{container=~".*assess-bot.*"} | json | service="jev-web"'
+    print("   события service=jev-web в Loki (за 24ч):")
+    for e in ("http", "health", "chat", "security_alert"):
+        print(f"     evt={e:<15}: " + _loki_val(f'sum(count_over_time({base} | evt="{e}" [24h]))'))
+    print("\n  Grafana → Dashboards → «jev.best — Web (visitors + security)» (время: Last 24 hours).")
     print("  Explore (Loki):  {container=~\".*assess-bot.*\"} | json | service=\"jev-web\" | evt=\"http\"")
 
 
@@ -671,6 +719,14 @@ def cmd_api():
         "  VAL=''; for c in $SRCS; do VAL=$(docker exec \"$c\" printenv \"$V\" 2>/dev/null || true); "
         "    [ -n \"$VAL\" ] && break; done; "
         "  [ -n \"$VAL\" ] && printf '%s=%s\\n' \"$V\" \"$VAL\" >> /opt/jevbest/.env.tmp; done; "
+        # ALERT_TG_CHAT не в env colt? Берём операторские chat_id из colt authorized.json — тот же
+        # источник, что использует сам cybergod (notify._tg_chats). Тот же бот (BOT_TOKEN) → Telegram
+        # алерты полетят тем же людям. Числа (>=5 цифр) из JSON, без python — grep.
+        "if ! grep -q '^ALERT_TG_CHAT=' /opt/jevbest/.env.tmp; then "
+        "  AJ=''; for c in $SRCS; do AJ=$(docker exec \"$c\" sh -c 'cat /data/web_authorized.json 2>/dev/null || cat /var/log/colt/authorized.json 2>/dev/null' 2>/dev/null); [ -n \"$AJ\" ] && break; done; "
+        "  CH=$(printf '%s' \"$AJ\" | grep -oE '\"-?[0-9]{5,}\"' | tr -d '\"' | sort -u | paste -sd, -); "
+        "  [ -n \"$CH\" ] && echo \"ALERT_TG_CHAT=$CH\" >> /opt/jevbest/.env.tmp; "
+        "fi; "
         "grep -q OPENAI_BASE_URL /opt/jevbest/.env.tmp || echo 'OPENAI_BASE_URL=https://inference.do-ai.run/v1' >> /opt/jevbest/.env.tmp; "
         "echo 'JEV_CHAT_MODELS=deepseek-3.2,llama-4-maverick' >> /opt/jevbest/.env.tmp; "
         "VOL=$(docker volume ls --format '{{.Name}}' | grep -ix 'colt-stack_colt_events' | head -1); "
@@ -683,9 +739,13 @@ def cmd_api():
     print("   " + (out or "(нет ответа)").replace("\n", "\n   "))
     if "OPENAI_API_KEY=<set>" not in out:
         print("   [!] LLM-ключ не найден в colt — чат ответит фолбэком. Проверь, что colt-web запущен.")
-    if "ALERT_TG_CHAT=<set>" not in out:
-        print("   [i] ALERT_TG_CHAT нет НИ в одном colt-контейнере — Telegram шлём операторам из")
-        print("       colt authorized.json (как сам colt); email-алерты идут по ALERT_EMAIL в любом случае.")
+    if "ALERT_TG_CHAT=<set>" in out:
+        print("   [i] ALERT_TG_CHAT взят из colt authorized.json — Telegram-алерты пойдут тем же")
+        print("       операторам, что и у cybergod (тот же бот).")
+    else:
+        print("   [i] ALERT_TG_CHAT не найден (ни env colt, ни authorized.json). Telegram-алерты не")
+        print("       полетят, пока не задан chat_id; email-алерты по ALERT_EMAIL работают всегда.")
+        print("       Чтобы включить Telegram: напиши боту, узнай свой chat_id, добавь в /opt/jevbest/.env")
 
     # ВАЖНО: `api` ТОЖЕ шлёт актуальный контекст на дроплет. Иначе на /opt/jevbest остаётся старый
     # docker-compose.api.yml (напр. со `user: 1000`), и пересборка/`up` поднимает контейнер по-старому.
@@ -731,6 +791,12 @@ def cmd_api():
                   "2>/dev/null || echo NOWRITE", check=False)
     w = (w or "").strip()
     print("   запись в events.log  : " + w)
+    # чтение access-лога jev-web (для evt=http). Нужен CAP_DAC_READ_SEARCH (файл 0600 чужого uid).
+    cr, _, _ = ssh("docker exec jev-api sh -c 'wc -l < /logs/caddy.jsonl 2>/dev/null "
+                   "&& echo READ || echo NOREAD' 2>/dev/null | tail -1 || echo NOREAD", check=False)
+    cr = (cr or "").strip()
+    print("   чтение caddy.jsonl   : " + ("READ ✓ (evt=http поедет)" if "READ" in cr and "NOREAD" not in cr
+                                          else "NOREAD ✗ (нет CAP_DAC_READ_SEARCH → evt=http пуст)"))
     if "WRITABLE" in w and "running" in pm and uid == "0":
         # реальная строка события, чтобы сразу увидеть её в Loki
         ssh("docker exec jev-api python3 -c \"import telemetry;"
@@ -789,6 +855,25 @@ def cmd_dns():
     print("\n  Глобальный [OK], а дроплет показывает старое → это просто кэш. Сбрось: python jev.py flush")
 
 
+def cmd_report():
+    """Собрать и ОТПРАВИТЬ ежедневный отчёт прямо сейчас (обычно шлётся сам в 07:00 UTC из jev-api).
+    `python jev.py report`         — печать + email + короткая сводка в Telegram
+    `python jev.py report --print` — только печать (ничего не шлём)"""
+    only = "--print" in sys.argv[2:]
+    print("→ ежедневный отчёт jev.best (email + Telegram, как cybergod) — считаю за 24ч")
+    arg = "daily_report.py --print" if only else "daily_report.py"
+    out, err, _ = ssh(f"docker exec jev-api python3 {arg} 2>&1 || echo '(jev-api не запущен — python jev.py api)'",
+                      check=False)
+    print((out or err or "(нет ответа)").rstrip())
+
+
+def cmd_indexnow():
+    """Пингануть Яндекс/Bing (IndexNow), чтобы переобошли сайт прямо сейчас — после правок SEO."""
+    print("→ IndexNow: сообщаю Яндексу/Bing о свежем контенте")
+    indexnow_ping([f"https://{DOMAIN}/", f"https://{DOMAIN}/llms.txt"])
+    print("  (для Google — запроси переобход в Search Console → Проверка URL → Запросить индексирование)")
+
+
 CMDS = {
     "deploy": cmd_deploy,
     "status": cmd_status,
@@ -800,6 +885,8 @@ CMDS = {
     "obs": cmd_obs,
     "api": cmd_api,
     "flush": cmd_flush,
+    "report": cmd_report,
+    "indexnow": cmd_indexnow,
 }
 
 

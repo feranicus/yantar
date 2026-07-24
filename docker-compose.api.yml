@@ -22,6 +22,8 @@ services:
       WATCHDOG_EDGE_HOST: videodead-caddy-1    # общий эдж-Caddy в той же сети appnet
       WATCHDOG_SNI: jev.best
       CERT_WARN_DAYS: "14"                     # алерт, если до конца TLS-серта осталось меньше
+      DAILY_REPORT: "1"                        # ежедневный отчёт на email + сводка в Telegram
+      DAILY_REPORT_HOUR: "7"                   # час отправки, UTC (как cybergod)
     networks: [appnet]
     # ВАЖНО: как colt-assessbot/colt-cassandra — БЕЗ user:, т.е. root В КОНТЕЙНЕРЕ. Общий том
     # colt_events (events.log) принадлежит root (боты colt пишут туда root'ом); под uid 1000
@@ -30,6 +32,11 @@ services:
     # наружу торчит только /api/* через jev-web. Это 1:1 как боты cybergod (они тоже root).
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
+    # jev-web (uid 1000) пишет /logs/caddy.jsonl режимом 0600 (дефолт Caddy). root в контейнере с
+    # cap_drop ALL ТЕРЯЕТ CAP_DAC_READ_SEARCH и не может прочитать чужой 0600-файл → tailer падал с
+    # PermissionError, evt=http не рождался (health шёл — он не читает файл). Возвращаем ТОЛЬКО право
+    # чтения (не запись/овнершип): tailer читает caddy.jsonl. Это и есть недостающее звено evt=http.
+    cap_add: ["DAC_READ_SEARCH"]
     tmpfs:
       - /tmp:size=32m
     volumes:
