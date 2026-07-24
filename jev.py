@@ -359,7 +359,8 @@ def cmd_deploy():
     flush_droplet_dns()
 
     print()
-    verify()
+    ok = verify()
+    verify_http_pipeline()
 
 
 def verify():
@@ -420,8 +421,35 @@ def verify():
     return ok
 
 
+def verify_http_pipeline():
+    """evt=http приходит ТОЛЬКО из access-лога jev-web (health-события идут внутри jev-api и уже
+    работают). Проверяем самое частое место обрыва: пишет ли jev-web /logs/caddy.jsonl. Если 0 —
+    в рантайме jev-web без access-лога (старый образ), и Visitors/Security останутся пустыми."""
+    print("→ http-конвейер (caddy.jsonl → jev-api tail → evt=http; для Visitors/Security)")
+    # засеваем пару запросов, чтобы прямо сейчас было что логировать
+    ssh("docker exec jev-web wget -qO- http://127.0.0.1:8080/__whoami >/dev/null 2>&1 || true; "
+        "docker exec jev-web wget -qO- http://127.0.0.1:8080/ >/dev/null 2>&1 || true", check=False)
+    time.sleep(2)
+    cl, _, _ = ssh("docker exec jev-web sh -c 'wc -l < /logs/caddy.jsonl 2>/dev/null || echo 0' "
+                   "2>/dev/null || echo '?'", check=False)
+    cl = (cl or "?").strip()
+    print("   строк в /logs/caddy.jsonl: " + cl)
+    if cl in ("0", "?", ""):
+        print("   [!] jev-web НЕ пишет access-лог → evt=http неоткуда взяться. Этот deploy пересобрал")
+        print("       jev-web с логом (srv.Caddyfile). Если после него строка всё ещё 0 — покажи мне.")
+    else:
+        print("   ✓ jev-web пишет access-лог; jev-api тейлит его → evt=http.")
+        print("     Дай сайту трафик (пара кликов) → Grafana «jev.best — Web»: Visitors оживёт за ~30с.")
+        # если jev-api поднят — покажем, что evt=http уже капают в общий лог
+        eh, _, _ = ssh("docker inspect jev-api >/dev/null 2>&1 && "
+                       "docker exec jev-api sh -c 'grep -cE \"evt.+http\" /coltevents/events.log "
+                       "2>/dev/null || echo 0' || echo 'jev-api down (python jev.py api)'", check=False)
+        print("   evt=http в общем логе: " + ((eh or "0").strip()))
+
+
 def cmd_status():
     verify()
+    verify_http_pipeline()
 
 
 def cmd_diagnose():
@@ -633,32 +661,46 @@ def cmd_api():
     # Плюс создаём общий каталог логов (jev-web пишет туда caddy.jsonl) и находим colt-events volume.
     reuse = (
         "set -e; mkdir -p /opt/jevbest/logs; chown -R 1000:1000 /opt/jevbest/logs 2>/dev/null || true; "
-        "SRC=''; for c in colt-web colt-assessbot colt-cassandra; do "
-        "  if docker inspect \"$c\" >/dev/null 2>&1; then SRC=\"$c\"; break; fi; done; "
-        "if [ -z \"$SRC\" ]; then echo NO_COLT; exit 0; fi; "
+        # собираем ВСЕ colt-контейнеры и ищем каждый ключ в любом из них (ALERT_TG_CHAT может жить
+        # не в colt-web, а в assessbot/cassandra) — переиспользуем максимум, новых ключей не заводим.
+        "SRCS=''; for c in colt-web colt-assessbot colt-cassandra; do "
+        "  docker inspect \"$c\" >/dev/null 2>&1 && SRCS=\"$SRCS $c\"; done; "
+        "if [ -z \"$SRCS\" ]; then echo NO_COLT; exit 0; fi; "
         "umask 077; : > /opt/jevbest/.env.tmp; "
         "for V in OPENAI_API_KEY OPENAI_BASE_URL BOT_TOKEN ALERT_TG_CHAT ALERT_EMAIL GMAIL_SENDER GMAIL_SA_B64; do "
-        "  VAL=$(docker exec \"$SRC\" printenv \"$V\" 2>/dev/null || true); "
+        "  VAL=''; for c in $SRCS; do VAL=$(docker exec \"$c\" printenv \"$V\" 2>/dev/null || true); "
+        "    [ -n \"$VAL\" ] && break; done; "
         "  [ -n \"$VAL\" ] && printf '%s=%s\\n' \"$V\" \"$VAL\" >> /opt/jevbest/.env.tmp; done; "
         "grep -q OPENAI_BASE_URL /opt/jevbest/.env.tmp || echo 'OPENAI_BASE_URL=https://inference.do-ai.run/v1' >> /opt/jevbest/.env.tmp; "
         "echo 'JEV_CHAT_MODELS=deepseek-3.2,llama-4-maverick' >> /opt/jevbest/.env.tmp; "
-        "VOL=$(docker volume ls --format '{{.Name}}' | grep -i 'colt.*event' | head -1); "
+        "VOL=$(docker volume ls --format '{{.Name}}' | grep -ix 'colt-stack_colt_events' | head -1); "
+        "[ -z \"$VOL\" ] && VOL=$(docker volume ls --format '{{.Name}}' | grep -i 'colt.*event' | head -1); "
         "[ -n \"$VOL\" ] && echo \"COLT_EVENTS_VOLUME=$VOL\" >> /opt/jevbest/.env.tmp; "
         "mv /opt/jevbest/.env.tmp /opt/jevbest/.env; "
-        "echo \"REUSED from $SRC:\"; sed 's/=.*/=<set>/' /opt/jevbest/.env"
+        "echo REUSED:; sed 's/=.*/=<set>/' /opt/jevbest/.env"
     )
     out, _, _ = ssh(reuse, check=False, quiet=True)
     print("   " + (out or "(нет ответа)").replace("\n", "\n   "))
     if "OPENAI_API_KEY=<set>" not in out:
         print("   [!] LLM-ключ не найден в colt — чат ответит фолбэком. Проверь, что colt-web запущен.")
     if "ALERT_TG_CHAT=<set>" not in out:
-        print("   [i] ALERT_TG_CHAT не задан в colt — Telegram-алерты некуда слать. Добавь свой chat_id в")
-        print("       /opt/jevbest/.env (ALERT_TG_CHAT=<число>), напиши боту, чтобы узнать id. email — по ALERT_EMAIL.")
+        print("   [i] ALERT_TG_CHAT нет НИ в одном colt-контейнере — Telegram шлём операторам из")
+        print("       colt authorized.json (как сам colt); email-алерты идут по ALERT_EMAIL в любом случае.")
+
+    # ВАЖНО: `api` ТОЖЕ шлёт актуальный контекст на дроплет. Иначе на /opt/jevbest остаётся старый
+    # docker-compose.api.yml (напр. со `user: 1000`), и пересборка/`up` поднимает контейнер по-старому.
+    print("→ отправляю актуальный контекст на дроплет (compose + webapp)")
+    tar = build_tar()
+    ssh(f"mkdir -p {REMOTE}", quiet=True)
+    scp(tar, f"{REMOTE}/ctx.tar.gz")
+    os.unlink(tar)
+    ssh(f"cd {REMOTE} && tar xzf ctx.tar.gz && rm -f ctx.tar.gz")
+
     print("→ дроплет собирает jev-api")
     out, err, _ = ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml build 2>&1 | tail -15")
     print("   " + (out or err).replace("\n", "\n   "))
-    print("→ поднимаю jev-api (без --remove-orphans)")
-    ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml up -d")
+    print("→ поднимаю jev-api (--force-recreate, чтобы подхватить новый compose; без --remove-orphans)")
+    ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml up -d --force-recreate")
     time.sleep(6)
     out, _, _ = ssh("docker exec jev-api python3 -c "
                     "\"import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=5).read().decode())\" "
@@ -666,6 +708,45 @@ def cmd_api():
     print("   health          : " + (out or "(нет ответа)"))
     out, _, _ = ssh("docker exec jev-web wget -qO- http://127.0.0.1:8080/api/health 2>/dev/null || echo '(маршрут /api не готов — нужен deploy jev-web)'", check=False)
     print("   через jev-web    : " + (out or "(нет ответа)"))
+
+    # ── ДОКАЗАТЕЛЬСТВО КОНВЕЙЕРА: events.log → colt-promtail → Loki (1:1 как cybergod) ──
+    # Пишем НАСТОЯЩИМ телеметрическим emit'ом внутри jev-api в общий colt_events/events.log и
+    # проверяем: том прикреплён, запись прошла (root!), строка легла, colt-promtail жив.
+    print("→ проверяю конвейер телеметрии (events.log → colt-promtail → Loki, как cybergod)")
+    pm, _, _ = ssh("docker inspect -f '{{.State.Status}}' colt-promtail 2>/dev/null || echo MISSING", check=False)
+    pm = (pm or "MISSING").strip()
+    print("   colt-promtail        : " + pm)
+    uid, _, _ = ssh("docker exec jev-api id -u 2>/dev/null || echo '?'", check=False)
+    uid = (uid or "?").strip()
+    print("   jev-api uid          : " + uid +
+          (" (root ✓)" if uid == "0" else " (НЕ root — не сможет писать общий лог, см. ниже!)"))
+    vol, _, _ = ssh("docker inspect jev-api "
+                    "-f '{{range .Mounts}}{{if eq .Destination \"/coltevents\"}}{{.Name}}{{end}}{{end}}' "
+                    "2>/dev/null", check=False)
+    print("   общий том events     : " + ((vol or "").strip() or "(не примонтирован!)"))
+    # чистый тест записи: создаём/дописываем events.log и печатаем ОДИН токен WRITABLE / NOWRITE
+    w, _, _ = ssh("docker exec jev-api python3 -c \"import os;"
+                  "p=os.environ.get('EVENTS_LOG','/coltevents/events.log');"
+                  "open(p,'a').close();print('WRITABLE' if os.access(p,os.W_OK) else 'NOWRITE')\" "
+                  "2>/dev/null || echo NOWRITE", check=False)
+    w = (w or "").strip()
+    print("   запись в events.log  : " + w)
+    if "WRITABLE" in w and "running" in pm and uid == "0":
+        # реальная строка события, чтобы сразу увидеть её в Loki
+        ssh("docker exec jev-api python3 -c \"import telemetry;"
+            "telemetry.emit(evt='selftest',service='jev-web',src='jevpy')\" 2>/dev/null", check=False)
+        print("   ✓ Конвейер готов: jev-api (root) пишет events.log, colt-promtail шлёт в Loki.")
+        print("     Открой сайт (пара кликов) → Grafana → «jev.best — Web»: данные придут за ~15-30с.")
+    else:
+        print("   [!] Пайплайн НЕ готов:")
+        if uid != "0":
+            print("       jev-api всё ещё не root → не пишет общий лог. Проверь, что новый")
+            print("       docker-compose.api.yml (без user:1000) доехал на дроплет и был --force-recreate.")
+        if "running" not in pm:
+            print("       colt-promtail не running → события никто не шлёт в Loki.")
+        if "NOWRITE" in w:
+            print("       нет прав на запись /coltevents/events.log (том/овнершип).")
+
     print("\n  Чат: открой jev.best → кнопка «Спросить ИИ». Если health показал \"llm_configured\": false —")
     print("  добавь ключ в /opt/jevbest/.env и повтори: python jev.py api")
 

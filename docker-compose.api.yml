@@ -23,7 +23,11 @@ services:
       WATCHDOG_SNI: jev.best
       CERT_WARN_DAYS: "14"                     # алерт, если до конца TLS-серта осталось меньше
     networks: [appnet]
-    user: "1000:1000"
+    # ВАЖНО: как colt-assessbot/colt-cassandra — БЕЗ user:, т.е. root В КОНТЕЙНЕРЕ. Общий том
+    # colt_events (events.log) принадлежит root (боты colt пишут туда root'ом); под uid 1000
+    # jev-api не мог дописывать events.log и телеметрия молча пропадала (emit() глотает ошибку) —
+    # сайт жив, а Grafana пустая. Контейнер всё равно жёсткий: cap_drop ALL + no-new-privileges,
+    # наружу торчит только /api/* через jev-web. Это 1:1 как боты cybergod (они тоже root).
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
     tmpfs:
