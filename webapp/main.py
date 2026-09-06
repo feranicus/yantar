@@ -18,10 +18,12 @@ import time
 import urllib.error
 import urllib.request
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+import ratelimit
 
 import telemetry
 import alerts
@@ -67,7 +69,13 @@ WhatsApp +49 157 8554 1545).
 не выдумывай фактов сверх списка; говори о нём в третьем лице; не уходи в посторонние темы; на грубость
 отвечай спокойно; при искреннем интересе предложи Telegram @feranicus или WhatsApp."""
 
-app = FastAPI(title="jev.best API", version="2.0")
+# No published API schema: FastAPI enables /docs, /redoc and /openapi.json by default. Caddy only
+# routes /api/* to this container so they are not reachable today, but that is a routing accident,
+# not a decision. Set JEV_API_DOCS=1 in dev. (The rate limit below is the control; this is hygiene.)
+app = FastAPI(title="jev.best API", version="2.0",
+              docs_url="/docs" if os.environ.get("JEV_API_DOCS") == "1" else None,
+              redoc_url="/redoc" if os.environ.get("JEV_API_DOCS") == "1" else None,
+              openapi_url="/openapi.json" if os.environ.get("JEV_API_DOCS") == "1" else None)
 app.add_middleware(
     CORSMiddleware, allow_origins=["https://jev.best", "https://www.jev.best"],
     allow_methods=["POST", "GET"], allow_headers=["*"],
@@ -225,7 +233,18 @@ def _chat_metric(ok, ms=0, model="", reason="", turns=0):
 
 
 @app.post("/api/chat")
-def chat(inp: ChatIn):
+def chat(inp: ChatIn, request: Request):
+    # A BUDGET, NOT A LOGIN. This endpoint is public by design and spends model tokens on our
+    # DigitalOcean key on every call. The sibling project jobhuntwow had the same shape with no
+    # cap and took 1,538 unmetered calls from one address in eight days (2026-09-06). The model
+    # here is server-chosen (MODELS) and roles are coerced below, so the only missing control was
+    # a limit on how often one address may spend.
+    _ip = ratelimit.client_ip(request)
+    _ok, _retry, _why = ratelimit.check(_ip)
+    if not _ok:
+        _chat_metric(False, reason="rate_limited")
+        return JSONResponse({"reply": "Слишком много запросов подряд. Попробуйте через минуту."},
+                            status_code=429, headers={"Retry-After": str(_retry)})
     if not KEY:
         _chat_metric(False, reason="no_key")
         return JSONResponse({"reply": "ИИ-ассистент сейчас недоступен. Напишите Евгению напрямую: "

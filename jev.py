@@ -346,6 +346,17 @@ def do_git(message="jev.best: build + ship"):
 
 
 def cmd_deploy():
+    # TESTS FIRST: /api/chat is unauthenticated BY DESIGN and spends model tokens on our
+    # DigitalOcean key on every call, so the per-address budget IS the control. Nothing ships if
+    # it is broken. (jobhuntwow had the identical endpoint with no cap: 1,538 calls from one
+    # address in eight days, 2026-09-06.)
+    _t = os.path.join(ROOT, "tests", "test_chat_budget.py")
+    if os.path.exists(_t):
+        print("== tests: chat budget + no published schema ==", flush=True)
+        if subprocess.run([sys.executable, _t]).returncode != 0:
+            sys.exit("[X] chat budget tests FAILED - nothing was deployed")
+    else:
+        print("[!] tests/test_chat_budget.py MISSING - a suite that is absent cannot pass", flush=True)
     do_git()
     print("→ 1/5 собираю контекст")
     tar = build_tar()
