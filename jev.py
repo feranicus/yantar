@@ -370,7 +370,9 @@ def cmd_deploy():
     ssh(f"cd {REMOTE} && tar xzf ctx.tar.gz && rm -f ctx.tar.gz")
 
     print("→ 3/5 дроплет собирает образ")
-    out, err, _ = ssh(f"cd {REMOTE} && {COMPOSE} build 2>&1 | tail -25")
+    out, err, _ = ssh(
+        f"cd {REMOTE} && {COMPOSE} build > /tmp/jev-build.log 2>&1; rc=$?; "
+        f"tail -25 /tmp/jev-build.log; exit $rc")
     print("   " + out.replace("\n", "\n   "))
 
     print("→ 4/5 поднимаю контейнер")
@@ -768,7 +770,9 @@ def cmd_api():
     ssh(f"cd {REMOTE} && tar xzf ctx.tar.gz && rm -f ctx.tar.gz")
 
     print("→ дроплет собирает jev-api")
-    out, err, _ = ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml build 2>&1 | tail -15")
+    out, err, _ = ssh(
+        f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml build "
+        f"> /tmp/jev-api-build.log 2>&1; rc=$?; tail -15 /tmp/jev-api-build.log; exit $rc")
     print("   " + (out or err).replace("\n", "\n   "))
     print("→ поднимаю jev-api (--force-recreate, чтобы подхватить новый compose; без --remove-orphans)")
     ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml up -d --force-recreate")
