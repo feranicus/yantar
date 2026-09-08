@@ -76,6 +76,18 @@ app = FastAPI(title="jev.best API", version="2.0",
               docs_url="/docs" if os.environ.get("JEV_API_DOCS") == "1" else None,
               redoc_url="/redoc" if os.environ.get("JEV_API_DOCS") == "1" else None,
               openapi_url="/openapi.json" if os.environ.get("JEV_API_DOCS") == "1" else None)
+
+# PERSEUS SIDECAR — blocks what the hub published and reports every request to the
+# shared event log, which is what makes this project visible in cybergod.ai ->
+# Admin -> Fleet and what lets the ONE alerting brain page the operator about it.
+# It holds no credentials and sends nothing itself. Wrapped because a defence that
+# stops the site it protects is worse than no defence -- but the failure is PRINTED,
+# because a swallowed import is how this ran unguarded while reporting success.
+try:
+    import perseus_client
+    app.add_middleware(perseus_client.Middleware)
+except Exception as _perseus_exc:  # never take the app down over telemetry
+    print('PERSEUS SIDECAR NOT WIRED: %r' % (_perseus_exc,), flush=True)
 app.add_middleware(
     CORSMiddleware, allow_origins=["https://jev.best", "https://www.jev.best"],
     allow_methods=["POST", "GET"], allow_headers=["*"],
