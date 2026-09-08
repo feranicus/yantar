@@ -108,15 +108,39 @@ def ssh_opts():
     return o
 
 
-def ssh(cmd, stdin_data=None, check=True, quiet=False):
+# A HARD TIMEOUT ON EVERY REMOTE CALL. ConnectTimeout/ServerAlive only kill a DEAD transport;
+# a live-but-hung remote command waits FOREVER, and `subprocess.run` without `timeout=` waits with
+# it. This script sat for an hour at "отправляю актуальный контекст" for exactly that reason --
+# the rollout had just opened a dozen ssh sessions in quick succession and OpenSSH's
+# PerSourcePenalties / MaxStartups refused the next one. The sibling repo already fixed this in
+# deploy.py and it was never carried across. A silent hang is the failure mode already paid for.
+SSH_T = 120          # read-only probes and small writes
+BUILD_T = 900        # a docker build on the droplet legitimately takes minutes
+
+
+def ssh(cmd, stdin_data=None, check=True, quiet=False, timeout=SSH_T):
     full = ["ssh", *ssh_opts(), f"{USER}@{HOST}", cmd]
     if not quiet:
         print(f"  ssh> {cmd if len(cmd) < 120 else cmd[:117] + '...'}")
-    p = subprocess.run(
-        full,
-        input=stdin_data.encode() if stdin_data else None,
-        capture_output=True,
-    )
+    for attempt in (1, 2):
+        try:
+            p = subprocess.run(
+                full,
+                input=stdin_data.encode() if stdin_data else None,
+                capture_output=True,
+                timeout=timeout,
+            )
+            break
+        except subprocess.TimeoutExpired:
+            # A transient sshd throttle costs seconds on a retry, not the whole deploy.
+            if attempt == 1:
+                print(f"  [!] ssh не ответил за {timeout}s — одна повторная попытка через 5s")
+                time.sleep(5)
+                continue
+            raise SystemExit(
+                f"ssh завис на {timeout}s (дважды): {cmd[:90]}\n"
+                f"    Обычно это троттлинг sshd после серии быстрых подключений.\n"
+                f"    Подожди минуту и повтори; ничего на дроплете не изменено.")
     out = p.stdout.decode(errors="replace")
     err = p.stderr.decode(errors="replace")
     if check and p.returncode != 0:
@@ -126,9 +150,14 @@ def ssh(cmd, stdin_data=None, check=True, quiet=False):
     return out.strip(), err.strip(), p.returncode
 
 
-def scp(local, remote):
+def scp(local, remote, timeout=300):
     full = ["scp", *ssh_opts(), local, f"{USER}@{HOST}:{remote}"]
-    p = subprocess.run(full, capture_output=True)
+    try:
+        p = subprocess.run(full, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise SystemExit(
+            f"scp завис на {timeout}s при отправке {os.path.basename(local)}.\n"
+            f"    Обычно это троттлинг sshd. Подожди минуту и повтори.")
     if p.returncode != 0:
         print(p.stderr.decode(errors="replace"), file=sys.stderr)
         raise SystemExit("scp упал")
@@ -370,10 +399,21 @@ def cmd_deploy():
     ssh(f"cd {REMOTE} && tar xzf ctx.tar.gz && rm -f ctx.tar.gz")
 
     print("→ 3/5 дроплет собирает образ")
-    out, err, _ = ssh(
+    # A TAIL SHOWS STACK FRAMES; THE CAUSE IS THE LINE ABOVE THEM.
+    # `tail -25` of a rollup failure is 25 lines of node_modules frames and the npm upgrade
+    # notice -- everything except "error during build: Could not resolve ...". So grep the log
+    # for the decisive lines FIRST, then show a longer tail. check=False so we can print the
+    # diagnosis before failing; a build error must name its cause, not just its exit code.
+    out, err, rc = ssh(
         f"cd {REMOTE} && {COMPOSE} build > /tmp/jev-build.log 2>&1; rc=$?; "
-        f"tail -25 /tmp/jev-build.log; exit $rc")
+        f"echo '--- cause ---'; "
+        f"grep -nE 'error during build|Could not resolve|Cannot find|is not exported|"
+        f"ENOENT|SyntaxError|Unexpected|failed to solve' /tmp/jev-build.log | head -20; "
+        f"echo '--- tail ---'; tail -60 /tmp/jev-build.log; exit $rc",
+        check=False, timeout=BUILD_T)
     print("   " + out.replace("\n", "\n   "))
+    if rc != 0:
+        raise SystemExit(f"сборка образа упала (rc={rc}) — причина выше, деплой остановлен")
 
     print("→ 4/5 поднимаю контейнер")
     # Каталог access-лога Caddy создаём и отдаём uid 1000 ДО старта. Иначе Docker создаст
@@ -772,7 +812,8 @@ def cmd_api():
     print("→ дроплет собирает jev-api")
     out, err, _ = ssh(
         f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml build "
-        f"> /tmp/jev-api-build.log 2>&1; rc=$?; tail -15 /tmp/jev-api-build.log; exit $rc")
+        f"> /tmp/jev-api-build.log 2>&1; rc=$?; tail -15 /tmp/jev-api-build.log; exit $rc",
+        timeout=BUILD_T)
     print("   " + (out or err).replace("\n", "\n   "))
     print("→ поднимаю jev-api (--force-recreate, чтобы подхватить новый compose; без --remove-orphans)")
     ssh(f"cd {REMOTE} && docker compose -p {PROJECT} -f docker-compose.api.yml up -d --force-recreate")
