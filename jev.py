@@ -118,11 +118,21 @@ SSH_T = 120          # read-only probes and small writes
 BUILD_T = 900        # a docker build on the droplet legitimately takes minutes
 
 
-def ssh(cmd, stdin_data=None, check=True, quiet=False, timeout=SSH_T):
+def ssh(cmd, stdin_data=None, check=True, quiet=False, timeout=SSH_T, retry=False):
+    """retry=True ТОЛЬКО для идемпотентных команд (чтение, проверки).
+
+    A TIMEOUT IS NOT A FAILURE -- IT IS AN UNKNOWN OUTCOME. The very first run of this timeout
+    proved it: `tar xzf ctx.tar.gz && rm -f ctx.tar.gz` timed out at 120s, the retry ran, and the
+    droplet answered `ctx.tar.gz: Cannot open: No such file or directory` -- the FIRST attempt had
+    already extracted the archive and deleted it. Re-running a command that may have completed is
+    how a retry turns a slow success into a hard failure. deploy.py's rule in the sibling repo says
+    it in one word: retry a timed-out READ-ONLY probe. So retry is OPT-IN, and off by default.
+    """
     full = ["ssh", *ssh_opts(), f"{USER}@{HOST}", cmd]
     if not quiet:
         print(f"  ssh> {cmd if len(cmd) < 120 else cmd[:117] + '...'}")
-    for attempt in (1, 2):
+    attempts = (1, 2) if retry else (1,)
+    for attempt in attempts:
         try:
             p = subprocess.run(
                 full,
@@ -132,15 +142,17 @@ def ssh(cmd, stdin_data=None, check=True, quiet=False, timeout=SSH_T):
             )
             break
         except subprocess.TimeoutExpired:
-            # A transient sshd throttle costs seconds on a retry, not the whole deploy.
-            if attempt == 1:
-                print(f"  [!] ssh не ответил за {timeout}s — одна повторная попытка через 5s")
+            if retry and attempt == 1:
+                print(f"  [!] ssh не ответил за {timeout}s — повтор (команда идемпотентна)")
                 time.sleep(5)
                 continue
             raise SystemExit(
-                f"ssh завис на {timeout}s (дважды): {cmd[:90]}\n"
-                f"    Обычно это троттлинг sshd после серии быстрых подключений.\n"
-                f"    Подожди минуту и повтори; ничего на дроплете не изменено.")
+                f"ssh завис на {timeout}s: {cmd[:90]}\n"
+                f"    Команда НЕ идемпотентна — повтор не делаю: она могла уже выполниться\n"
+                f"    на дроплете, просто ответ не дошёл. Проверь состояние и повтори вручную:\n"
+                f"      python jev.py diagnose\n"
+                f"    Причина обычно — троттлинг sshd после серии быстрых подключений\n"
+                f"    или нагрузка на дроплете (параллельные docker build).")
     out = p.stdout.decode(errors="replace")
     err = p.stderr.decode(errors="replace")
     if check and p.returncode != 0:
@@ -396,7 +408,7 @@ def cmd_deploy():
     ssh(f"mkdir -p {REMOTE}", quiet=True)
     scp(tar, f"{REMOTE}/ctx.tar.gz")
     os.unlink(tar)
-    ssh(f"cd {REMOTE} && tar xzf ctx.tar.gz && rm -f ctx.tar.gz")
+    ssh(f"cd {REMOTE} && tar xzf ctx.tar.gz && rm -f ctx.tar.gz", timeout=300)   # non-idempotent: no retry
 
     print("→ 3/5 дроплет собирает образ")
     # A TAIL SHOWS STACK FRAMES; THE CAUSE IS THE LINE ABOVE THEM.
@@ -807,7 +819,7 @@ def cmd_api():
     ssh(f"mkdir -p {REMOTE}", quiet=True)
     scp(tar, f"{REMOTE}/ctx.tar.gz")
     os.unlink(tar)
-    ssh(f"cd {REMOTE} && tar xzf ctx.tar.gz && rm -f ctx.tar.gz")
+    ssh(f"cd {REMOTE} && tar xzf ctx.tar.gz && rm -f ctx.tar.gz", timeout=300)   # non-idempotent: no retry
 
     print("→ дроплет собирает jev-api")
     out, err, _ = ssh(
